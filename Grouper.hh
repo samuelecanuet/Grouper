@@ -29,8 +29,6 @@ using namespace std;
 int Verbose = 0;
 
 pair<double, double> detectorCleaning[SIGNAL_MAX];
-double detectorCalib[SIGNAL_MAX];
-bool Calibration = false;
 
 /// Silicon ///
 double winSiliMin = -50;
@@ -141,6 +139,7 @@ TCanvas *CanvasLow;
 TH2I *HSiPM_Multiplicities_C;
 
 TTree *Tree_Silicons[SIGNAL_MAX];
+TTree *Tree_SiPMs[SIGNAL_MAX];
 /////////////////////////////////////
 
 inline int InitHistograms_Grouped()
@@ -480,6 +479,12 @@ inline int InitTree_Cleaned()
       Tree_Silicons[i] = new TTree(("Tree_Silicon_" + detectorName[i]).c_str(), ("Tree_Silicon_" + detectorName[i]).c_str());
       Tree_Silicons[i]->Branch("Channel", &Tree_Channel, "Channel/I");
     }
+
+    if (IsDetectorBeta(i))
+    {
+      Tree_SiPMs[i] = new TTree(("Tree_SiPM_" + detectorName[i]).c_str(), ("Tree_SiPM_" + detectorName[i]).c_str());
+      Tree_SiPMs[i]->Branch("Channel", &Tree_Channel, "Channel/I");
+    }
   }
 
   return 0;
@@ -757,78 +762,16 @@ inline int WriteTree_Cleaned()
       Tree_Silicons[i]->Write();
       delete Tree_Silicons[i];
     }
+
+    if (IsDetectorBeta(i))
+    {
+      Tree_SiPMs[i]->Write();
+      delete Tree_SiPMs[i];
+    }
   }
 
   delete Tree_Cleaned;
   return 0;
-}
-
-int InitCalib()
-{
-  int error = 0;
-  std::string CalibDir = "../Calib/FIRST_CALIB/";
-  std::string CalibFileName = baseFileName + "_Calib.txt";
-  std::ifstream file(CalibDir + CalibFileName);
-
-  for (auto &value : detectorCalib)
-  {
-    value = 0.;
-  }
-
-  if (file.is_open())
-  {
-    GLogMessage("<SAM> Calibration file found");
-
-    Calibration = true;
-
-    std::string line;
-    int i = 0;
-    while (std::getline(file, line))
-    {
-      std::istringstream iss(line);
-      double a;
-      double err_a;
-      std::string DetName;
-      iss >> DetName >> a >> err_a;
-
-      int index = 0;
-
-      for (auto &name : detectorName)
-      {
-        if ("H_" + name == DetName)
-        {
-          detectorCalib[index] = a;
-          break;
-        }
-        index++;
-      }
-    }
-  }
-  else
-  {
-    GLogMessage("<SAM> No Calibration file found");
-    error = 1;
-  }
-
-  // FOR CHECK
-  int index = 0;
-  // for (auto &name : detectorName)
-  // {
-  //   std::cout<<name<<"       "<<detectorCalib[index]<<std::endl;
-  //   index++;
-  // }
-
-  file.close();
-  return error;
-}
-
-double GetCalib(int raw, int det)
-{
-  if (Calibration)
-  {
-    return raw * detectorCalib[det];
-  }
-  return raw;
 }
 
 void ProgressBar(ULong64_t cEntry, ULong64_t TotalEntries, clock_t start, clock_t Current)

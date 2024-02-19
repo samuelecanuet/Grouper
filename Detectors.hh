@@ -32,7 +32,6 @@ int detSili[SILI_NUM][SILI_SIZE]; ///< Detector number of silicon signals
 
 int coderDetector[FDATA_MAX]; ///< Detector number of all coders
 
-
 inline bool IsDetectorBeta(int det)
 {
   bool res = false;

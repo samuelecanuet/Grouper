@@ -20,23 +20,29 @@ int main(int argc, char *argv[])
     }
 
     ///////////INITIALISATION///////////
-    TFile *OutputFile = new TFile(("./Grouper/Matched/run_0"+to_string(RunCal)+"_32Ar_matched.root").c_str(), "RECREATE");
-    TFile *Ref1234_File = new TFile(("./Grouper/Cleaned/run_0"+to_string(RunRef_1234)+"_32Ar_cleaned.root").c_str(), "READ");
-    TFile *Ref5678_File = new TFile(("./Grouper/Cleaned/run_0"+to_string(RunRef_5678)+"_32Ar_cleaned.root").c_str(), "READ");
-    TFile *Cal_File = new TFile(("./Grouper/Cleaned/run_0"+to_string(RunCal)+"_32Ar_cleaned.root").c_str(), "READ");
+    TFile *OutputFile = new TFile(("./Matched/run_0"+to_string(RunCal)+"_32Ar_matched.root").c_str(), "RECREATE");
+    TFile *Ref1234_File = new TFile(("./Cleaned/run_0"+to_string(RunRef_1234)+"_32Ar_cleaned.root").c_str(), "READ");
+    TFile *Ref5678_File = new TFile(("./Cleaned/run_0"+to_string(RunRef_5678)+"_32Ar_cleaned.root").c_str(), "READ");
+    TFile *Cal_File = new TFile(("./Cleaned/run_0"+to_string(RunCal)+"_32Ar_cleaned.root").c_str(), "READ");
 
     TGraphErrors* Result = new TGraphErrors();
-    Result->SetDrawOption("AP");
+    Result->SetDrawOption("*AP");
     Result->SetTitle("Proportionality;Detector;Proportionality");
     int result_counter = 0;
     InitDetectors("../Analysis/ReadFaster/Data/detectors.dat");
 
     ///////////MINIMIZER///////////
     string dir;
+    string det;
+    int rebin;
     for (size_t i = 0; i < detectorNum; ++i)
     {
         if (IsDetectorSili(i))
         {
+            det = "Silicon";
+            range_low = 20000;
+            range_high = 90000;
+            rebin = 1;
             if (GetDetector(i) <= 4 )
             {
                 Ref_File = Ref1234_File;
@@ -48,14 +54,34 @@ int main(int argc, char *argv[])
 
             if (IsDetectorSiliStrip(i))
             {
+                
                 dir = "Strip";
             }
             else
             {
                 dir = "Rear";
             }
+        }
+        else if (IsDetectorBeta(i))
+        {
+            det = "SiPM";
+            Ref_File = Ref5678_File;
+            range_low = 0;
+            range_high = 4000000;
+            rebin = 1;
+            if (IsDetectorBetaHigh(i))
+            {
+                dir = "SiPMHigh";
+            }
+            else
+            {
+                dir = "SiPMLow";
+                rebin = 8;
+            }
+        }
             Ref_Hist = (TH1I *)Ref_File->Get((dir+"_Channel"+"/H"+dir+"_Channel_C_"+detectorName[i]).c_str());
-            Tree = (TTree *)Cal_File->Get(("Tree_Silicon_"+detectorName[i]).c_str());
+            Ref_Hist->Rebin(rebin);
+            Tree = (TTree *)Cal_File->Get(("Tree_"+det+"_"+detectorName[i]).c_str());
             Reader = new TTreeReader (Tree);
 
             graph = new TGraph();
@@ -67,18 +93,19 @@ int main(int argc, char *argv[])
             Minimizer *minimizer = Factory::CreateMinimizer("Minuit2", "Migrad");
             ROOT::Math::Functor functor(&Chi2TreeHist, 1);
             minimizer->SetFunction(functor);
-            minimizer->SetLimitedVariable(0, "Proportionality", 1., .05, 0.95, 1.05);
+            minimizer->SetLimitedVariable(0, "Proportionality", 1., .05, 0.9, 1.1);
             minimizer->SetPrecision(0.05);
             minimizer->Minimize();
             const double *bestPar = minimizer->X();
             
             ////// Second
-            minimizer->SetLimitedVariable(0, "Proportionality", bestPar[0], .05, 0.95, 1.05);
+            minimizer->SetLimitedVariable(0, "Proportionality", bestPar[0], .05, 0.9, 1.1);
             minimizer->SetPrecision(1e-5);
             minimizer->Minimize();
             bestPar = minimizer->X();
 
             ////// Third
+            minimizer->SetLimitedVariable(0, "Proportionality", bestPar[0], .05, 0.9, 1.1);
             minimizer->SetPrecision(1e-10);
             minimizer->Minimize();
             bestPar = minimizer->X();
@@ -119,7 +146,6 @@ int main(int argc, char *argv[])
 
             
         }
-    }
 
     Result->Write();
 

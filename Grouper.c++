@@ -1,15 +1,14 @@
 #include "Grouper.hh"
 #include <ctime>
 
-/// @brief //////////////regfre
-/// @return 
+
 int main()
 {
     clock_t start = clock(), Current;
 
 
     ///////////////////////////////////  INPUT ///////////////////////////////////
-    baseFileName = "run_013_32Ar";
+    baseFileName = "run_034_32Ar";
     dirNameGrouped = "./Grouped/";
     dirNameCleaned = "./Cleaned/";
     string ROOTFileName = "../../../../../../../mnt/hgfs/shared-2/" + baseFileName + ".root";
@@ -30,7 +29,6 @@ int main()
 
     ///////////////////////////////////  INITIALISATION ///////////////////////////////////
     InitDetectors("../Analysis/ReadFaster/Data/detectors.dat");
-    InitCalib();
 
     InitHistograms_Grouped();
     InitTree_Grouped();
@@ -111,6 +109,22 @@ int main()
             ////FOR REAR
             Tree_Channel = Grouped_Silicon[1].Channel;
             Tree_Silicons[Grouped_Silicon[1].Label]->Fill();
+
+            ////FOR SiPMHigh
+            for (size_t i = 0; i < Grouped_SiPMHigh.GetSize(); ++i)
+            {
+                Tree_Channel = Grouped_SiPMHigh[i].Channel;
+                Tree_SiPMs[Grouped_SiPMHigh[i].Label]->Fill();
+            }
+
+            ////FOR SiPMLow
+            for (size_t i = 0; i < Grouped_SiPMLow.GetSize(); ++i)
+            {
+                Tree_Channel = Grouped_SiPMLow[i].Channel;
+                Tree_SiPMs[Grouped_SiPMLow[i].Label]->Fill();
+            }
+
+
             Tree_Cleaned->Fill();
         }
     }

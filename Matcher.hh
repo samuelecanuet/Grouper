@@ -35,6 +35,8 @@ TTree *Tree;
 TGraph* graph;
 int counter;
 double chi2;
+int range_low;
+int range_high;
 
 int Verbose = 0;
 
@@ -71,8 +73,8 @@ inline double Chi2TreeHist(const Double_t *par)
     Reader->Restart();
     TTreeReaderValue<int> Channel(*Reader, "Channel");
     TH1I *TreeHist = (TH1I *)Ref_Hist->Clone((to_string(par[0])).c_str());
-    Ref_Hist->GetXaxis()->SetRangeUser(20000, 90000);
-    TreeHist->GetXaxis()->SetRangeUser(20000, 90000);
+    Ref_Hist->GetXaxis()->SetRangeUser(range_low, range_high);
+    TreeHist->GetXaxis()->SetRangeUser(range_low, range_high);
     TreeHist->Reset();
     
     while (Reader->Next())
@@ -80,7 +82,7 @@ inline double Chi2TreeHist(const Double_t *par)
         TreeHist->Fill((*Channel) * par[0]); 
     }
 
-    chi2 = Ref_Hist->Chi2Test(TreeHist, "UW CHI2/NDF");
+    chi2 = Ref_Hist->Chi2Test(TreeHist, "WW CHI2/NDF");
     graph->SetPoint(counter, par[0], chi2);
     counter++;
     return chi2;

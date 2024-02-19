@@ -45,6 +45,7 @@
         "stdexcept": "cpp",
         "streambuf": "cpp",
         "typeinfo": "cpp",
-        "fast2root.C": "cpp"
+        "fast2root.C": "cpp",
+        "filesystem": "cpp"
     }
 }
