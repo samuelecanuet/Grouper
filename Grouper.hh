@@ -17,8 +17,6 @@
 #include "TTreeReaderArray.h"
 #include "TRandom.h"
 
-#include <gsl/gsl_statistics.h>
-
 #include "Signal.h"
 #include "Detectors.hh"
 
@@ -27,39 +25,11 @@
 using namespace std;
 
 int Verbose = 0;
+int RunCal;
 
 pair<double, double> detectorCleaning[SIGNAL_MAX];
 
-/// Silicon ///
-double winSiliMin = -50;
-double winSiliMax = 50;
-int winSiliN = (abs(winSiliMin) + winSiliMax) / 8;
-double eSiliMin = 0;
-double eSiliMax = 100000;
-int eSiliN = 10000;
 
-/// SiPM ///
-/// High
-double winHighMin = 100;
-double winHighMax = 250;
-int winHighN = (abs(winHighMin) + winHighMax) / 2;
-double eHighMin = 0;
-double eHighMax = 4000000;
-int eHighN = 4000;
-
-/// Low
-double winLowMin = 100;
-double winLowMax = 250;
-int winLowN = (abs(winLowMin) + winLowMax) / 2;
-double eLowMin = 0;
-double eLowMax = 4000000;
-int eLowN = 4000;
-
-/// TOTAL WINDOW ///
-double tabMIN[3] = {winSiliMin, winHighMin, winLowMin};
-double winTotalMin = gsl_stats_min(tabMIN, 1, 3);
-double tabMAX[3] = {winSiliMax, winHighMax, winLowMax};
-double winTotalMax = gsl_stats_max(tabMAX, 1, 3);
 
 double Event = 0;
 

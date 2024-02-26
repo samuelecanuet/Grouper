@@ -2,13 +2,22 @@
 #include <ctime>
 
 
-int main()
+int main(int argc, char *argv[])
 {
     clock_t start = clock(), Current;
 
-
+    if (argc == 1)
+    {
+        cout << "Default Runs Used : 034" << endl;
+        RunCal = 34;
+    }
+    else
+    {
+        RunCal = atoi(argv[1]);
+    }
+    cout<<"<SAM> Cuurent Run : "<<RunCal<<endl;
     ///////////////////////////////////  INPUT ///////////////////////////////////
-    baseFileName = "run_034_32Ar";
+    baseFileName = ("run_0"+to_string(RunCal)+"_32Ar").c_str();
     dirNameGrouped = "./Grouped/";
     dirNameCleaned = "./Cleaned/";
     string ROOTFileName = "../../../../../../../mnt/hgfs/shared-2/" + baseFileName + ".root";

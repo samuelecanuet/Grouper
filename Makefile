@@ -6,12 +6,14 @@ GSL_LIBS        = $(shell gsl-config --libs)
 
 GTOOLS_L = $(shell gtools_lib)
 
+C++_CFLAGS      = $(shell -std=c++17)
+
 
 SignalDict.cxx: Signal.h LinkDef.h
 	rootcling -f $@ -c $^ 
 
 CC        = g++
-CFLAGS    = ${FASTERAC_CFLAGS} ${ROOT_CFLAGS} ${GSL_CFLAGS} 
+CFLAGS    = ${FASTERAC_CFLAGS} ${ROOT_CFLAGS} ${GSL_CFLAGS}
 LIBS      = ${FASTERAC_LIBS}   ${ROOT_LIBS} ${GSL_LIBS} ${GTOOLS_L}
 
 SRCEXE    = $(shell ls *.c++)
@@ -21,7 +23,7 @@ SOURCE    = $(shell ls *.hh)
 all : $(EXE) $(SOURCE) 
 
 $(EXE): $(SOURCE) $(SRCEXE)
-	${CC} $@.c++ $@.hh Detectors.hh SignalDict.cxx -o $@ ${CFLAGS} ${LIBS}
+	${CC} $@.c++ $@.hh Detectors.hh SignalDict.cxx -o $@ ${CFLAGS} ${LIBS} -lboost_filesystem -lboost_system
 
 clean :
 	rm -f *.o

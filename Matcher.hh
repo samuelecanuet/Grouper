@@ -37,6 +37,8 @@ int counter;
 double chi2;
 int range_low;
 int range_high;
+int guess_high = 0.9;
+int guess_low = 1.1;
 
 int Verbose = 0;
 

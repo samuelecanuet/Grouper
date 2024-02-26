@@ -69,6 +69,8 @@ int main(int argc, char *argv[])
             range_low = 0;
             range_high = 4000000;
             rebin = 1;
+            guess_high = 1.2;
+            guess_low = 0.8;
             if (IsDetectorBetaHigh(i))
             {
                 dir = "SiPMHigh";
@@ -93,19 +95,19 @@ int main(int argc, char *argv[])
             Minimizer *minimizer = Factory::CreateMinimizer("Minuit2", "Migrad");
             ROOT::Math::Functor functor(&Chi2TreeHist, 1);
             minimizer->SetFunction(functor);
-            minimizer->SetLimitedVariable(0, "Proportionality", 1., .05, 0.9, 1.1);
+            minimizer->SetLimitedVariable(0, "Proportionality", 1., .05, guess_low, guess_high);
             minimizer->SetPrecision(0.05);
             minimizer->Minimize();
             const double *bestPar = minimizer->X();
             
             ////// Second
-            minimizer->SetLimitedVariable(0, "Proportionality", bestPar[0], .05, 0.9, 1.1);
+            minimizer->SetLimitedVariable(0, "Proportionality", bestPar[0], .05, guess_low, guess_high);
             minimizer->SetPrecision(1e-5);
             minimizer->Minimize();
             bestPar = minimizer->X();
 
             ////// Third
-            minimizer->SetLimitedVariable(0, "Proportionality", bestPar[0], .05, 0.9, 1.1);
+            minimizer->SetLimitedVariable(0, "Proportionality", bestPar[0], .05, guess_low, guess_high);
             minimizer->SetPrecision(1e-10);
             minimizer->Minimize();
             bestPar = minimizer->X();
@@ -147,6 +149,7 @@ int main(int argc, char *argv[])
             
         }
 
+    Result->SetName("10000");
     Result->Write();
 
     return 0;
