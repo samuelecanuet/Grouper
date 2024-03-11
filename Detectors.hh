@@ -6,6 +6,7 @@
 #include <cmath>
 #include <fstream> 
 #include <gsl/gsl_statistics.h>
+#include "TFile.h"
 
 #include "/home/local1/Documents/lib/GTools1.0/include/GString.hh"
 
@@ -226,5 +227,29 @@ inline int InitDetectors(const string &fname)
   return (error);
 }
 
+void WriteTime(TFile* from_File, TFile* to_file)
+{
+  TObject* start = from_File->Get("Start_time");
+  TObject* stop = from_File->Get("Stop_time");
+
+  to_file->cd();
+  TNamed("Start_time", start->GetTitle()).Write();
+  TNamed("Stop_time", stop->GetTitle()).Write();
+}
+
+int GetTime(TFile* File)
+{
+  TObject* start = File->Get("Start_time");
+  TObject* stop = File->Get("Stop_time");
+
+  string str_start = start->GetTitle();
+  string str_stop = stop->GetTitle();
+
+  cout<<str_start<<endl;
+  cout<<str_stop<<endl;
+  
+
+  return 0;
+}
 
 #endif

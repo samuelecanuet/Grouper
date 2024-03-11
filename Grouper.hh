@@ -11,6 +11,8 @@
 #include "TH1F.h"
 #include "TH2I.h"
 #include "TTree.h"
+#include "TProfile.h"
+#include "TGraph.h"
 #include "TCanvas.h"
 #include "TTreeReader.h"
 #include "TTreeReaderValue.h"
@@ -32,6 +34,7 @@ pair<double, double> detectorCleaning[SIGNAL_MAX];
 
 
 double Event = 0;
+int counter_graph[BETA_SIZE+1];
 
 string baseFileName;
 string dirNameGrouped;
@@ -73,6 +76,20 @@ TH1I *HSiPMLowRear_Time_G[SIGNAL_MAX];
 TH2I *HSiPMLowRear_TimeChannel_G[SIGNAL_MAX];
 
 /// SIPMs
+TH1I *HSiPMHigh_False_G;
+TH1I *HSiPMLow_False_G;
+TH1I *HSiPMHigh_Time_False_G;
+TH1I *HSiPMLow_Time_False_G;
+TH1I *HSiPMHigh_SiPM_False_G;
+TH1I *HSiPMLow_SiPM_False_G;
+TH2D *HSiPM_Channel_G[BETA_SIZE+1];
+TGraph *GSiPM_Channel_G[BETA_SIZE+1];
+
+double counter_true = 0;
+double counter_high = 0;
+double counter_low = 0;
+TH1D *HSiPM_Counter_False_G;
+
 TH1I *HSiPMHigh_Multiplicity_G;
 TH1I *HSiPMLow_Multiplicity_G;
 TH2I *HSiPM_Multiplicities_G;
@@ -99,18 +116,12 @@ TH2I *HSiPMLowRear_TimeChannel_C[SIGNAL_MAX];
 
 /// SIPMs
 TH1I *HSiPMHigh_Multiplicity_C;
-TH2I *HSiPMHigh_Correlation_C[BETA_SIZE][BETA_SIZE];
-TH2I *HSiPMHigh_SUMCorrelation_C[BETA_SIZE];
-TCanvas *CanvasHigh;
 TH1I *HSiPMLow_Multiplicity_C;
-TH2I *HSiPMLow_Correlation_C[BETA_SIZE][BETA_SIZE];
-TH2I *HSiPMLow_SUMCorrelation_C[BETA_SIZE];
-TCanvas *CanvasLow;
 TH2I *HSiPM_Multiplicities_C;
 
 TTree *Tree_Silicons[SIGNAL_MAX];
-TTree *Tree_SiPMs[SIGNAL_MAX];
-/////////////////////////////////////
+
+//////////////////////////////////////
 
 inline int InitHistograms_Grouped()
 {
@@ -130,6 +141,19 @@ inline int InitHistograms_Grouped()
     HSiPMLowRear_Time_G[i] = NULL;
     HSiPMLowRear_TimeChannel_G[i] = NULL;
     HSiPM_Multiplicities_G = NULL;
+
+    HSiPMHigh_False_G = NULL;
+    HSiPMLow_False_G = NULL;
+    HSiPMHigh_Time_False_G = NULL;
+    HSiPMLow_Time_False_G = NULL;
+    HSiPMHigh_SiPM_False_G = NULL;
+    HSiPMLow_SiPM_False_G = NULL;
+
+    HSiPM_Channel_G[i] = NULL;
+    GSiPM_Channel_G[i] = NULL;  
+
+    HSiPM_Counter_False_G = NULL;
+    
   }
 
   for (size_t i = 0; i < detectorNum; ++i)
@@ -214,8 +238,22 @@ inline int InitHistograms_Grouped()
       HSiPMLowRear_TimeChannel_G[i]->GetXaxis()->CenterTitle();
       HSiPMLowRear_TimeChannel_G[i]->GetYaxis()->CenterTitle();
       HSiPMLowRear_TimeChannel_G[i]->SetDrawOption("COLZ");
+
     }
   }
+
+  for (int i=1; i<=BETA_SIZE; ++i)
+  {
+    HSiPM_Channel_G[i] = new TH2D(("HSiPM_"+to_string(i)).c_str(), ("HSiPM_"+to_string(i)).c_str(), 4000, 0, 4000000, 4000, 0, 4000000);
+    HSiPM_Channel_G[i]->GetXaxis()->SetTitle("SiPM Low [Channel]");
+    HSiPM_Channel_G[i]->GetYaxis()->SetTitle("SiPM High [Channel]");
+    HSiPM_Channel_G[i]->GetXaxis()->CenterTitle();
+    HSiPM_Channel_G[i]->GetYaxis()->CenterTitle();
+    HSiPM_Channel_G[i]->SetDrawOption("COLZ");
+
+    GSiPM_Channel_G[i] = new TGraph();
+  }
+
   HSiPMHigh_Multiplicity_G = new TH1I(("HSiPMHigh_Multiplicity_G"), ("HSiPMHigh_Multiplicity_G"), 10, 0, 10);
   HSiPMHigh_Multiplicity_G->GetXaxis()->SetTitle("Multiplicity");
   HSiPMHigh_Multiplicity_G->GetYaxis()->SetTitle("Counts");
@@ -234,6 +272,51 @@ inline int InitHistograms_Grouped()
   HSiPM_Multiplicities_G->GetXaxis()->CenterTitle();
   HSiPM_Multiplicities_G->GetYaxis()->CenterTitle();
   HSiPM_Multiplicities_G->SetDrawOption("COLZ");
+
+  HSiPMLow_False_G = new TH1I(("HSiPMLow_False_G"), ("HSiPMLow_False_G"), eLowN, eLowMin, eLowMax);
+      HSiPMLow_False_G->GetXaxis()->SetTitle("SiPM Low [Channel]");
+      HSiPMLow_False_G->GetYaxis()->SetTitle("Counts");
+      HSiPMLow_False_G->GetXaxis()->CenterTitle();
+      HSiPMLow_False_G->GetYaxis()->CenterTitle();
+
+
+   HSiPMHigh_False_G = new TH1I(("HSiPMHigh_False_G"), ("HSiPMHigh_False_G"), eHighN, eHighMin, eHighMax);
+      HSiPMHigh_False_G->GetXaxis()->SetTitle("SiPM High [Channel]");
+      HSiPMHigh_False_G->GetYaxis()->SetTitle("Counts");
+      HSiPMHigh_False_G->GetXaxis()->CenterTitle();
+      HSiPMHigh_False_G->GetYaxis()->CenterTitle();
+
+    HSiPMLow_Time_False_G = new TH1I(("HSiPMLow_Time_False_G"), ("HSiPMLow_Time_False_G"), winLowN, winLowMin, winLowMax);
+      HSiPMLow_Time_False_G->GetXaxis()->SetTitle("Time [ns]");
+      HSiPMLow_Time_False_G->GetYaxis()->SetTitle("Counts");
+      HSiPMLow_Time_False_G->GetXaxis()->CenterTitle();
+      HSiPMLow_Time_False_G->GetYaxis()->CenterTitle();
+
+    HSiPMHigh_Time_False_G = new TH1I(("HSiPMHigh_Time_False_G"), ("HSiPMHigh_Time_False_G"), winHighN, winHighMin, winHighMax);
+      HSiPMHigh_Time_False_G->GetXaxis()->SetTitle("Time [ns]");
+      HSiPMHigh_Time_False_G->GetYaxis()->SetTitle("Counts");
+      HSiPMHigh_Time_False_G->GetXaxis()->CenterTitle();
+      HSiPMHigh_Time_False_G->GetYaxis()->CenterTitle();
+
+    HSiPMLow_SiPM_False_G = new TH1I(("HSiPMLow_SiPM_False_G"), ("HSiPMLow_SiPM_False_G"), 10, 0, 10);
+      HSiPMLow_SiPM_False_G->GetXaxis()->SetTitle("SiPM");
+      HSiPMLow_SiPM_False_G->GetYaxis()->SetTitle("Counts");
+      HSiPMLow_SiPM_False_G->GetXaxis()->CenterTitle();
+      HSiPMLow_SiPM_False_G->GetYaxis()->CenterTitle();
+
+    HSiPMHigh_SiPM_False_G = new TH1I(("HSiPMHigh_SiPM_False_G"), ("HSiPMHigh_SiPM_False_G"), 10, 0, 10);
+      HSiPMHigh_SiPM_False_G->GetXaxis()->SetTitle("SiPM");
+      HSiPMHigh_SiPM_False_G->GetYaxis()->SetTitle("Counts");
+      HSiPMHigh_SiPM_False_G->GetXaxis()->CenterTitle();
+      HSiPMHigh_SiPM_False_G->GetYaxis()->CenterTitle();
+
+
+    HSiPM_Counter_False_G = new TH1D(("HSiPM_Counter_False_G"), ("HSiPM_Counter_False_G"), 5, -2, 2);
+      HSiPM_Counter_False_G->GetXaxis()->SetTitle("False Low \t True \t False High");
+      HSiPM_Counter_False_G->GetYaxis()->SetTitle("Counts");
+      HSiPM_Counter_False_G->GetXaxis()->CenterTitle();
+      HSiPM_Counter_False_G->GetYaxis()->CenterTitle();
+
   return 0;
 }
 
@@ -256,17 +339,6 @@ inline int InitHistograms_Cleaned()
     HSiPMLowRear_Time_C[i] = NULL;
     HSiPMLowRear_TimeChannel_C[i] = NULL;
     HSiPM_Multiplicities_C = NULL;
-  }
-
-  for (size_t i = 0; i < BETA_SIZE; ++i)
-  {
-    HSiPMHigh_SUMCorrelation_C[i] = NULL;
-    HSiPMLow_SUMCorrelation_C[i] = NULL;
-    for (size_t j = 0; j < BETA_SIZE; ++j)
-    {
-      HSiPMHigh_Correlation_C[i][j] = NULL;
-      HSiPMLow_Correlation_C[i][j] = NULL;
-    }
   }
 
   for (size_t i = 0; i < detectorNum; ++i)
@@ -335,13 +407,6 @@ inline int InitHistograms_Cleaned()
       HSiPMHighRear_TimeChannel_C[i]->GetXaxis()->CenterTitle();
       HSiPMHighRear_TimeChannel_C[i]->GetYaxis()->CenterTitle();
       HSiPMHighRear_TimeChannel_C[i]->SetDrawOption("COLZ");
-
-      HSiPMHigh_SUMCorrelation_C[i] = new TH2I(("HSiPMHigh_SUMCorrelation_C_" + detectorName[i]).c_str(), ("HSiPMHigh_SUMCorrelation_C_" + detectorName[i]).c_str(), eHighN / 10, eHighMin, eHighMax, eHighN/10, eHighMin, eHighMax);
-      HSiPMHigh_SUMCorrelation_C[i]->GetXaxis()->SetTitle((detectorName[i] + " [Channel]").c_str());
-      HSiPMHigh_SUMCorrelation_C[i]->GetYaxis()->SetTitle("All High SiPMs [Channel]");
-      HSiPMHigh_SUMCorrelation_C[i]->GetXaxis()->CenterTitle();
-      HSiPMHigh_SUMCorrelation_C[i]->GetYaxis()->CenterTitle();
-      HSiPMHigh_SUMCorrelation_C[i]->SetDrawOption("COLZ");
     }
 
     if (IsDetectorBetaLow(i))
@@ -364,13 +429,6 @@ inline int InitHistograms_Cleaned()
       HSiPMLowRear_TimeChannel_C[i]->GetXaxis()->CenterTitle();
       HSiPMLowRear_TimeChannel_C[i]->GetYaxis()->CenterTitle();
       HSiPMLowRear_TimeChannel_C[i]->SetDrawOption("COLZ");
-
-      HSiPMLow_SUMCorrelation_C[i] = new TH2I(("HSiPMLow_SUMCorrelation_C_" + detectorName[i]).c_str(), ("HSiPMLow_SUMCorrelation_C_" + detectorName[i]).c_str(), eLowN / 10, eLowMin, eLowMax, eLowN /10 , eLowMin, eLowMax);
-      HSiPMLow_SUMCorrelation_C[i]->GetXaxis()->SetTitle((detectorName[i] + " [Channel]").c_str());
-      HSiPMLow_SUMCorrelation_C[i]->GetYaxis()->SetTitle("All Low SiPMs [Channel]");
-      HSiPMLow_SUMCorrelation_C[i]->GetXaxis()->CenterTitle();
-      HSiPMLow_SUMCorrelation_C[i]->GetYaxis()->CenterTitle();
-      HSiPMLow_SUMCorrelation_C[i]->SetDrawOption("COLZ");
     }
   }
   HSiPMHigh_Multiplicity_C = new TH1I(("HSiPMHigh_Multiplicity_C"), ("HSiPMHigh_Multiplicity_C"), 10, 0, 10);
@@ -379,41 +437,11 @@ inline int InitHistograms_Cleaned()
   HSiPMHigh_Multiplicity_C->GetXaxis()->CenterTitle();
   HSiPMHigh_Multiplicity_C->GetYaxis()->CenterTitle();
 
-  for (int j = 1; j <= 9; ++j)
-  {
-    for (int k = j + 1; k <= 9; ++k)
-    {
-      std::string histName = "HBetaHiCorrelation" + std::to_string(j) + "_" + std::to_string(k);
-      std::string histTitle = "BetaHigh Correlation " + std::to_string(j) + "/" + std::to_string(k);
-      HSiPMHigh_Correlation_C[j - 1][k - 1] = new TH2I(histName.c_str(), histTitle.c_str(), eHighN / 10, eHighMin, eHighMax, eHighN / 10, eHighMin, eHighMax);
-
-      HSiPMHigh_Correlation_C[j - 1][k - 1]->GetXaxis()->SetTitle(("Beta " + std::to_string(j) + "[Channel]").c_str());
-      HSiPMHigh_Correlation_C[j - 1][k - 1]->GetYaxis()->SetTitle(("Beta " + std::to_string(k) + "[Channel]").c_str());
-      HSiPMHigh_Correlation_C[j - 1][k - 1]->GetXaxis()->CenterTitle();
-      HSiPMHigh_Correlation_C[j - 1][k - 1]->GetYaxis()->CenterTitle();
-    }
-  }
-
   HSiPMLow_Multiplicity_C = new TH1I(("HSiPMLow_Multiplicity_C"), ("HSiPMLow_Multiplicity_C"), 10, 0, 10);
   HSiPMLow_Multiplicity_C->GetXaxis()->SetTitle("Multiplicity");
   HSiPMLow_Multiplicity_C->GetYaxis()->SetTitle("Counts");
   HSiPMLow_Multiplicity_C->GetXaxis()->CenterTitle();
   HSiPMLow_Multiplicity_C->GetYaxis()->CenterTitle();
-
-  for (int j = 1; j <= 9; ++j)
-  {
-    for (int k = j + 1; k <= 9; ++k)
-    {
-      std::string histName = "HBetaLowCorrelation" + std::to_string(j) + "_" + std::to_string(k);
-      std::string histTitle = "BetaLow Correlation " + std::to_string(j) + "/" + std::to_string(k);
-      HSiPMLow_Correlation_C[j - 1][k - 1] = new TH2I(histName.c_str(), histTitle.c_str(), eLowN / 10, eLowMin, eLowMax, eLowN / 10, eLowMin, eLowMax);
-
-      HSiPMLow_Correlation_C[j - 1][k - 1]->GetXaxis()->SetTitle(("Beta " + std::to_string(j) + "[Channel]").c_str());
-      HSiPMLow_Correlation_C[j - 1][k - 1]->GetYaxis()->SetTitle(("Beta " + std::to_string(k) + "[Channel]").c_str());
-      HSiPMLow_Correlation_C[j - 1][k - 1]->GetXaxis()->CenterTitle();
-      HSiPMLow_Correlation_C[j - 1][k - 1]->GetYaxis()->CenterTitle();
-    }
-  }
 
   HSiPM_Multiplicities_C = new TH2I(("HSiPM_Multiplicities_C"), ("HSiPM_Multiplicities_C"), 10, 0, 10, 10, 0, 10);
   HSiPM_Multiplicities_C->GetXaxis()->SetTitle("Multiplicity High");
@@ -448,12 +476,6 @@ inline int InitTree_Cleaned()
     {
       Tree_Silicons[i] = new TTree(("Tree_Silicon_" + detectorName[i]).c_str(), ("Tree_Silicon_" + detectorName[i]).c_str());
       Tree_Silicons[i]->Branch("Channel", &Tree_Channel, "Channel/I");
-    }
-
-    if (IsDetectorBeta(i))
-    {
-      Tree_SiPMs[i] = new TTree(("Tree_SiPM_" + detectorName[i]).c_str(), ("Tree_SiPM_" + detectorName[i]).c_str());
-      Tree_SiPMs[i]->Branch("Channel", &Tree_Channel, "Channel/I");
     }
   }
 
@@ -542,6 +564,37 @@ inline int WriteHistograms_Grouped()
   SiPM_Multiplicities_G->cd();
   HSiPM_Multiplicities_G->Write();
   delete HSiPM_Multiplicities_G;
+
+  for (int i = 1; i <= BETA_SIZE; ++i)
+  {
+    TCanvas* canvas = new TCanvas(("SiPM_"+to_string(i)).c_str(), ("SiPM_"+to_string(i)).c_str(), 200, 10, 700, 500);
+    canvas->cd();
+    GSiPM_Channel_G[i]->Draw("AP");
+    GSiPM_Channel_G[i]->SetTitle(("SiPM_"+to_string(i)).c_str());
+    canvas->Write();
+    delete canvas;
+  }
+
+
+  SiPM_Multiplicities_G->cd();
+  HSiPMHigh_False_G->Write();
+  delete HSiPMHigh_False_G;
+  HSiPMLow_False_G->Write();
+  delete HSiPMLow_False_G;
+  HSiPMHigh_Time_False_G->Write();
+  delete HSiPMHigh_Time_False_G;
+  HSiPMLow_Time_False_G->Write();
+  delete HSiPMLow_Time_False_G;
+  HSiPMHigh_SiPM_False_G->Write();
+  delete HSiPMHigh_SiPM_False_G;
+  HSiPMLow_SiPM_False_G->Write();
+  delete HSiPMLow_SiPM_False_G;
+
+  HSiPM_Counter_False_G->Fill(-1., counter_low);
+  HSiPM_Counter_False_G->Fill(0., counter_true);
+  HSiPM_Counter_False_G->Fill(1., counter_high);
+  HSiPM_Counter_False_G->Write();
+  delete HSiPM_Counter_False_G;
   return 0;
 }
 
@@ -559,15 +612,11 @@ inline int WriteHistograms_Cleaned()
   TDirectory *SiPMHigh_Time_C = File_Cleaned->mkdir("SiPMHigh_Time");
   TDirectory *SiPMHighRear_TimeChannel_C = File_Cleaned->mkdir("SiPMHighRear_TimeChannel");
   TDirectory *SiPMHigh_Multiplicity_C = File_Cleaned->mkdir("SiPMHigh_Multiplicity");
-  TDirectory *SiPMHigh_Correlation_C = File_Cleaned->mkdir("SiPMHigh_Correlation");
-  TDirectory *SiPMHigh_SUMCorrelation_C = File_Cleaned->mkdir("SiPMHigh_SUMCorrelation");
 
   TDirectory *SiPMLow_Channel_C = File_Cleaned->mkdir("SiPMLow_Channel");
   TDirectory *SiPMLow_Time_C = File_Cleaned->mkdir("SiPMLow_Time");
   TDirectory *SiPMLowRear_TimeChannel_C = File_Cleaned->mkdir("SiPMLowRear_TimeChannel");
   TDirectory *SiPMLow_Multiplicity_C = File_Cleaned->mkdir("SiPMLow_Multiplicity");
-  TDirectory *SiPMLow_Correlation_C = File_Cleaned->mkdir("SiPMLow_Correlation");
-  TDirectory *SiPMLow_SUMCorrelation_C = File_Cleaned->mkdir("SiPMLow_SUMCorrelation");
 
   TDirectory *SiPM_Multiplicities_C = File_Cleaned->mkdir("SiPM_Multiplicities");
 
@@ -610,8 +659,6 @@ inline int WriteHistograms_Cleaned()
       SiPMHighRear_TimeChannel_C->cd();
       HSiPMHighRear_TimeChannel_C[i]->Write();
       delete HSiPMHighRear_TimeChannel_C[i];
-      SiPMHigh_SUMCorrelation_C->cd();
-      HSiPMHigh_SUMCorrelation_C[i]->Write(); // delete HSiPMHigh_SUMCorrelation_C[i];
     }
 
     if (IsDetectorBetaLow(i))
@@ -625,8 +672,6 @@ inline int WriteHistograms_Cleaned()
       SiPMLowRear_TimeChannel_C->cd();
       HSiPMLowRear_TimeChannel_C[i]->Write();
       delete HSiPMLowRear_TimeChannel_C[i];
-      SiPMLow_SUMCorrelation_C->cd();
-      HSiPMLow_SUMCorrelation_C[i]->Write(); // delete HSiPMLow_SUMCorrelation_C[i];
     }
   }
 
@@ -634,81 +679,27 @@ inline int WriteHistograms_Cleaned()
   HSiPMHigh_Multiplicity_C->Write();
   delete HSiPMHigh_Multiplicity_C;
 
-  SiPMHigh_Correlation_C->cd();
-  ///// TCANVAS
-  for (int j = 1; j <= 9; ++j)
-  {
-    CanvasHigh = new TCanvas(("High" + to_string(j)).c_str(), ("High" + to_string(j)).c_str(), 1600, 800);
-    CanvasHigh->Divide(3, 3);
-
-    for (int k = 1; k <= 9; ++k)
-    {
-
-      if (HSiPMHigh_Correlation_C[j - 1][k - 1] != NULL)
-      {
-        CanvasHigh->cd(k);
-        HSiPMHigh_Correlation_C[j - 1][k - 1]->Draw("COLZ");
-      }
-
-      else if (HSiPMHigh_Correlation_C[k - 1][j - 1] != NULL)
-      {
-        CanvasHigh->cd(k);
-        HSiPMHigh_Correlation_C[k - 1][j - 1]->Draw("COLZ");
-      }
-    }
-
-    CanvasHigh->Write();
-  }
-  for (int j = 1; j <= 9; ++j)
-  {
-    for (int k = j + 1; k <= 9; ++k)
-    {
-      delete HSiPMHigh_Correlation_C[j - 1][k - 1];
-    }
-  }
-
   SiPMLow_Multiplicity_C->cd();
   HSiPMLow_Multiplicity_C->Write();
   delete HSiPMLow_Multiplicity_C;
-
-  SiPMLow_Correlation_C->cd();
-  ///// TCANVAS
-  for (int j = 1; j <= 9; ++j)
-  {
-    CanvasLow = new TCanvas(("Low" + to_string(j)).c_str(), ("Low" + to_string(j)).c_str(), 1600, 800);
-    CanvasLow->Divide(3, 3);
-
-    for (int k = 1; k <= 9; ++k)
-    {
-
-      if (HSiPMLow_Correlation_C[j - 1][k - 1] != NULL)
-      {
-        CanvasLow->cd(k);
-        HSiPMLow_Correlation_C[j - 1][k - 1]->Draw("COLZ");
-      }
-
-      else if (HSiPMLow_Correlation_C[k - 1][j - 1] != NULL)
-      {
-        CanvasLow->cd(j);
-        HSiPMLow_Correlation_C[k - 1][j - 1]->Draw("COLZ");
-      }
-    }
-
-    CanvasLow->Write();
-  }
-  for (int j = 1; j <= 9; ++j)
-  {
-    for (int k = j + 1; k <= 9; ++k)
-    {
-      delete HSiPMLow_Correlation_C[j - 1][k - 1];
-    }
-  }
 
   ////TCANVAS
 
   SiPM_Multiplicities_C->cd();
   HSiPM_Multiplicities_C->Write();
   delete HSiPM_Multiplicities_C;
+
+  for (int i = 1; i <= BETA_SIZE; ++i)
+  {
+    TCanvas* canvas = new TCanvas(("SiPM_"+to_string(i)).c_str(), ("SiPM_"+to_string(i)).c_str(), 200, 10, 700, 500);
+    canvas->cd();
+    GSiPM_Channel_G[i]->Draw("AP");
+    GSiPM_Channel_G[i]->SetTitle(("SiPM_"+to_string(i)).c_str());
+    GSiPM_Channel_G[i]->SetName(("SiPM_"+to_string(i)).c_str());
+    canvas->Write();
+    delete GSiPM_Channel_G[i];
+  }
+
   return 0;
 }
 
@@ -731,12 +722,6 @@ inline int WriteTree_Cleaned()
     {
       Tree_Silicons[i]->Write();
       delete Tree_Silicons[i];
-    }
-
-    if (IsDetectorBeta(i))
-    {
-      Tree_SiPMs[i]->Write();
-      delete Tree_SiPMs[i];
     }
   }
 
@@ -772,6 +757,7 @@ void SavingData_Grouped(vector<Signal> SiliconRear, vector<Signal> SiPM_High, ve
 
   if (Silicon.isValid)
   {
+    
     HStrip_Channel_G[Silicon.Label]->Fill(Silicon.Channel);
     HStripRear_Time_G[Silicon.Label]->Fill(Silicon.Time - TrigSignal.Time);
     HStripRear_Channel_G[Silicon.Label]->Fill(TrigSignal.Channel, Silicon.Channel);
@@ -790,6 +776,72 @@ void SavingData_Grouped(vector<Signal> SiliconRear, vector<Signal> SiPM_High, ve
       HSiPMLowRear_Time_G[it->Label]->Fill(it->Time - TrigSignal.Time);
       HSiPMLowRear_TimeChannel_G[it->Label]->Fill(it->Time - TrigSignal.Time, it->Channel);
     }
+
+    for (auto ith = SiPM_High.begin(); ith!= SiPM_High.end(); ++ith)
+      {
+        for (auto itl = SiPM_Low.begin(); itl != SiPM_Low.end(); ++itl)
+        {
+          if (GetDetectorChannel(ith->Label) == GetDetectorChannel(itl->Label))
+          {
+            HSiPM_Channel_G[GetDetectorChannel(ith->Label)]->Fill(itl->Channel, ith->Channel);
+            GSiPM_Channel_G[GetDetectorChannel(ith->Label)]->SetPoint(counter_graph[GetDetectorChannel(ith->Label)], itl->Channel, ith->Channel);
+            counter_graph[GetDetectorChannel(ith->Label)]++;
+          }
+        }
+      }
+
+  
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    SiPM_High.erase(std::remove_if(SiPM_High.begin(), SiPM_High.end(), [](const Signal &s) { return GetDetectorChannel(s.Label) == 4; }), SiPM_High.end());
+    SiPM_Low.erase(std::remove_if(SiPM_Low.begin(), SiPM_Low.end(), [](const Signal &s) { return GetDetectorChannel(s.Label) == 9; }), SiPM_Low.end());
+
+
+    if (true)//(Silicon.Channel < 42000 && Silicon.Channel > 40000 && GetDetector(Silicon.Label) == 7)
+    {
+      vector<int> vec_det;
+      //cout << "Event : " << Event << " (Si : "<<Silicon.Channel << " )"<<endl;
+      for (auto ith = SiPM_High.begin(); ith!= SiPM_High.end(); ++ith)
+      {
+        for (auto itl = SiPM_Low.begin(); itl != SiPM_Low.end(); ++itl)
+        {
+          if (GetDetectorChannel(ith->Label) == GetDetectorChannel(itl->Label))
+          {
+            //cout<<GetDetectorChannel(ith->Label)<< " : " <<ith->Channel<< "  " <<itl->Channel<< setprecision(15)<< "    TIME_DIFF : "<< ith->Time-itl->Time<<endl;
+            vec_det.push_back(GetDetectorChannel(ith->Label));
+            counter_true++;
+          }
+        }
+      }
+
+      //cout<<endl;
+      for (auto ith = SiPM_High.begin(); ith!= SiPM_High.end(); ++ith)
+      {
+        if (std::find(vec_det.begin(), vec_det.end(), GetDetectorChannel(ith->Label)) == vec_det.end())
+        {
+          //cout<<GetDetectorChannel(ith->Label)<< " : " <<ith->Channel<< "  " <<"   -   "<< setprecision(15)<< "    TIME : "<< ith->Time - TrigSignal.Time <<" (high)"<<endl;
+          HSiPMHigh_False_G->Fill(ith->Channel);
+          HSiPMHigh_Time_False_G->Fill(ith->Time - TrigSignal.Time);
+          HSiPMHigh_SiPM_False_G->Fill(GetDetectorChannel(ith->Label));
+          counter_high++;
+        }
+      }
+
+      for (auto ith = SiPM_Low.begin(); ith!= SiPM_Low.end(); ++ith)
+      {
+        if (std::find(vec_det.begin(), vec_det.end(), GetDetectorChannel(ith->Label)) == vec_det.end())
+        {
+          //cout<<GetDetectorChannel(ith->Label)<< " : " <<ith->Channel<< "  " <<"   -   "<< setprecision(15)<< "    TIME : "<< ith->Time - TrigSignal.Time <<" (low)"<<endl;
+          HSiPMLow_False_G->Fill(ith->Channel);
+          HSiPMLow_Time_False_G->Fill(ith->Time - TrigSignal.Time);
+          HSiPMLow_SiPM_False_G->Fill(GetDetectorChannel(ith->Label));
+          counter_low++;
+        }
+      }
+      //cout << "-----------------------------------" << endl;
+    }
+    ////////////////////////////////////////////////////////////////////////////////////////////////////
+    
+
 
     HSiPMHigh_Multiplicity_G->Fill(SiPM_High.size());
     HSiPMLow_Multiplicity_G->Fill(SiPM_Low.size());
@@ -835,45 +887,13 @@ void SavingData_Cleaned(vector<Signal> SiliconRear, vector<Signal> SiPM_High, ve
       HSiPMHigh_Channel_C[it->Label]->Fill(it->Channel);
       HSiPMHighRear_Time_C[it->Label]->Fill(it->Time - TrigSignal.Time);
       HSiPMHighRear_TimeChannel_C[it->Label]->Fill(it->Time - TrigSignal.Time, it->Channel);
-
-      Total = 0;
-      for (auto it2 = SiPM_High.begin(); it2 != SiPM_High.end(); ++it2)
-      {
-        if (it->Label != it2->Label)
-        {
-          if (it->Label < it2->Label)
-          {
-            HSiPMHigh_Correlation_C[GetDetectorChannel(it->Label) - 1][GetDetectorChannel(it2->Label) - 1]->Fill(it->Channel, it2->Channel);
-          }
-          else
-            HSiPMHigh_Correlation_C[GetDetectorChannel(it2->Label) - 1][GetDetectorChannel(it->Label) - 1]->Fill(it2->Channel, it->Channel);
-        }
-
-        Total += it2->Channel;
-      }
-      HSiPMHigh_SUMCorrelation_C[it->Label]->Fill(it->Channel, Total/SiPM_High.size());
     }
+
     for (auto it = SiPM_Low.begin(); it != SiPM_Low.end(); ++it)
     {
       HSiPMLow_Channel_C[it->Label]->Fill(it->Channel);
       HSiPMLowRear_Time_C[it->Label]->Fill(it->Time - TrigSignal.Time);
       HSiPMLowRear_TimeChannel_C[it->Label]->Fill(it->Time - TrigSignal.Time, it->Channel);
-
-      Total = 0;
-      for (auto it2 = SiPM_Low.begin(); it2 != SiPM_Low.end(); ++it2)
-      {
-        if (it->Label != it2->Label)
-        {
-          if (it->Label < it2->Label)
-          {
-            HSiPMLow_Correlation_C[GetDetectorChannel(it->Label) - 1][GetDetectorChannel(it2->Label) - 1]->Fill(it->Channel, it2->Channel);
-          }
-          else
-            HSiPMLow_Correlation_C[GetDetectorChannel(it2->Label) - 1][GetDetectorChannel(it->Label) - 1]->Fill(it2->Channel, it->Channel);
-        }
-        Total += it2->Channel;
-      }
-      HSiPMLow_SUMCorrelation_C[GetDetectorChannel(it->Label) - 1]->Fill(it->Channel, Total/SiPM_Low.size());
     }
 
     HSiPMHigh_Multiplicity_C->Fill(SiPM_High.size());
@@ -894,7 +914,7 @@ Signal ProcessSilicon(vector<Signal> Signal_Vector, Signal Trigger)
   /// Search in Signal Vector between 1 and n
   for (auto current = Signal_Vector.begin(); current != Signal_Vector.end(); ++current)
   {
-    if (current->Time - Trigger.Time < winSiliMax && Trigger.Time - current->Time > winSiliMin && IsSameSiliDetector(Trigger.Label, current->Label) && Trigger != *current)
+    if (current->Time - Trigger.Time < winSiliMax && Trigger.Time - current->Time > winSiliMin && IsSameSiliDetector(Trigger.Label, current->Label) && Trigger != *current)//&& current->Channel < 42000 && current->Channel > 40000)
     {
       Output_Vector.push_back(*current);
     }
@@ -905,9 +925,9 @@ Signal ProcessSilicon(vector<Signal> Signal_Vector, Signal Trigger)
     if (Output_Vector.size() == 2)
     {
       if (Output_Vector[0].Label < Output_Vector[1].Label)
-        HStripsMultiplicity_G[Trigger.Label]->Fill(Output_Vector[0].Label, Output_Vector[1].Label);
+        HStripsMultiplicity_G[Trigger.Label]->Fill(GetDetectorChannel(Output_Vector[0].Label), GetDetectorChannel(Output_Vector[1].Label));
       else
-        HStripsMultiplicity_G[Trigger.Label]->Fill(Output_Vector[1].Label, Output_Vector[0].Label);
+        HStripsMultiplicity_G[Trigger.Label]->Fill(GetDetectorChannel(Output_Vector[1].Label), GetDetectorChannel(Output_Vector[0].Label));
     }
 
     return Signal();
@@ -935,7 +955,7 @@ vector<Signal> ProcessSiPM(vector<Signal> Signal_Vector, Signal Trigger)
 void SearchForCoincidence(TTreeReader *Reader, TTreeReaderValue<double> &Times, TTreeReaderValue<int> &Labels, TTreeReaderValue<int> &Channels)
 {
   if (Verbose > 1)
-    cout << "### Starting a Coincidence group on " << detectorName[*Labels] << endl;
+    cout << "### Starting a Coincidence group on " << detectorName[*Labels] << " DATA nb : "<<Reader->GetCurrentEntry()<< "  TIME : "<< *Times<<endl;
 
   // Vector save
   vector<Signal> SiPMSignalsHigh;
@@ -961,7 +981,6 @@ void SearchForCoincidence(TTreeReader *Reader, TTreeReaderValue<double> &Times, 
   while (*Times <= TrigSignal.Time + winTotalMax)
   {
     Signal current = Signal(*Labels, *Times, *Channels); /// Current Signal
-
     if (IsDetectorSili(*Labels))
     {
       SiSignals.push_back(current);
@@ -978,6 +997,9 @@ void SearchForCoincidence(TTreeReader *Reader, TTreeReaderValue<double> &Times, 
     Reader->Next();
   }
 
+  int EndofGroup = Reader->GetCurrentEntry();
+  Reader->SetEntry(EndofGroup-1);
+
   ////Raw Save
 
   /// Selecting Signals in time window
@@ -989,6 +1011,8 @@ void SearchForCoincidence(TTreeReader *Reader, TTreeReaderValue<double> &Times, 
 
   SavingData_Grouped(SiliconRear, SiPM_High, SiPM_Low);
 }
+
+
 
 void InitCleaning()
 {

@@ -15,7 +15,7 @@ int main(int argc, char *argv[])
     {
         RunCal = atoi(argv[1]);
     }
-    cout<<"<SAM> Cuurent Run : "<<RunCal<<endl;
+    cout<<"<SAM> Current Run : "<<RunCal<<endl;
     ///////////////////////////////////  INPUT ///////////////////////////////////
     baseFileName = ("run_0"+to_string(RunCal)+"_32Ar").c_str();
     dirNameGrouped = "./Grouped/";
@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
     InitTree_Grouped();
 
     ///////////////////////////////////  PROCESSING TREE ///////////////////////////////////
-    int COUNTER = 0;
+    
 
     Verbose = 0;
     ULong64_t TotalEntries = Tree->GetEntries();
@@ -57,9 +57,8 @@ int main(int argc, char *argv[])
         }
 
         if (Verbose > 1)
-            cout << "DATA n°" << COUNTER << " ---> "
+            cout << "DATA n°" << Reader->GetCurrentEntry() << " ---> "
                  << "\t" << detectorName[*Label] << "\t" << setprecision(15) << *Time << "\t" << *Channel << endl;
-        COUNTER++;
 
         if (IsDetectorSiliBack(*Label))
         {
@@ -71,12 +70,15 @@ int main(int argc, char *argv[])
 
     WriteHistograms_Grouped();
     WriteTree_Grouped();
+    WriteTime(Data_File, File_Grouped);
     File_Grouped->Close();
+    Data_File->Close();
 
 
     ///////////////////////////////////  CLEANING ///////////////////////////////////
     File_Grouped = new TFile((dirNameGrouped+baseFileName+"_grouped.root").c_str(), "READ");
     File_Cleaned = new TFile((dirNameCleaned+baseFileName+"_cleaned.root").c_str(), "RECREATE");
+    WriteTime(File_Grouped, File_Cleaned);
     Tree_Grouped = (TTree *)File_Grouped->Get("Tree");
     GLogMessage("<SAM> Cleaning Proton Spectrum : ");
     InitCleaning();
@@ -94,7 +96,7 @@ int main(int argc, char *argv[])
 
     TotalEntries = Tree_Grouped->GetEntries();
     Event = 0;
-    double sigma_acceptance = 2;
+    double sigma_acceptance = 3;
     while(Grouped_Reader->Next())
     {
         ULong64_t cEntry = Grouped_Reader->GetCurrentEntry();
@@ -119,29 +121,13 @@ int main(int argc, char *argv[])
             Tree_Channel = Grouped_Silicon[1].Channel;
             Tree_Silicons[Grouped_Silicon[1].Label]->Fill();
 
-            ////FOR SiPMHigh
-            for (size_t i = 0; i < Grouped_SiPMHigh.GetSize(); ++i)
-            {
-                Tree_Channel = Grouped_SiPMHigh[i].Channel;
-                Tree_SiPMs[Grouped_SiPMHigh[i].Label]->Fill();
-            }
-
-            ////FOR SiPMLow
-            for (size_t i = 0; i < Grouped_SiPMLow.GetSize(); ++i)
-            {
-                Tree_Channel = Grouped_SiPMLow[i].Channel;
-                Tree_SiPMs[Grouped_SiPMLow[i].Label]->Fill();
-            }
-
-
             Tree_Cleaned->Fill();
         }
     }
     cout << "\n" <<"\e[0m" << flush ;
 
-
-    File_Grouped->Close();
     WriteHistograms_Cleaned();
     WriteTree_Cleaned();
     File_Cleaned->Close();
+    File_Grouped->Close();
 }

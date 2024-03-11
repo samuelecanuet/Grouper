@@ -53,6 +53,8 @@
         "list": "cpp",
         "ratio": "cpp",
         "thread": "cpp",
-        "cinttypes": "cpp"
+        "cinttypes": "cpp",
+        "IAS_stat.C": "cpp",
+        "fit.C": "cpp"
     }
 }
