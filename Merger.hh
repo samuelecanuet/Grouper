@@ -11,6 +11,7 @@
 #include "TFile.h"
 #include "TCanvas.h"
 #include <TKey.h>
+#include "TF1.h"
 #include "TH1F.h"
 #include "TH1D.h"
 #include "TH2D.h"
@@ -31,8 +32,13 @@ using namespace std;
 namespace fs = boost::filesystem;
 
 map<string, vector<string>> fileMap;
+string Catcher;
+vector<int> RunNumbers; 
+vector<int> runs;
 string baseFileName;
 double detectorCalib[SIGNAL_MAX];
+double detectorCalib_Fermi[SIGNAL_MAX];
+double detectorCalib_GT[SIGNAL_MAX];
 double detectorMatching[SIGNAL_MAX];
 vector<pair<string, string>> file_string_Time;
 vector<pair<double, double>> file_Time;
@@ -55,6 +61,8 @@ TH1D *HSiPM[BETA_SIZE+1];
 TH1D *HSiPM_F[BETA_SIZE+1];
 TH1D *HSiPM_GT[BETA_SIZE+1];
 
+TH2D* HSiPMRun[BETA_SIZE+1];
+
 TH2D *HSiliconRun_Channel_Unmatched[SIGNAL_MAX];
 TH2D *HSiliconRun_Channel_Matched[SIGNAL_MAX];
 TH2D *HSiliconRun[SIGNAL_MAX];
@@ -65,7 +73,7 @@ TH1D *HSilicon_temp[SIGNAL_MAX];
 TH1D *to_save_unmatched;
 TH1D *to_save_matched;
 
-
+TF1 *linear = new TF1("linear", "[0]*x");
 
 
 int Verbose = 0;
@@ -104,22 +112,6 @@ void ProgressBar(ULong64_t cEntry, ULong64_t TotalEntries, clock_t start, clock_
   }
 }
 
-vector<string> listFilesInDirectory(const string &directoryPath)
-{
-  vector<string> files;
-  fs::path path(directoryPath);
-  if (fs::exists(path) && fs::is_directory(path))
-  {
-    for (auto &entry : fs::directory_iterator(path))
-    {
-      if (fs::is_regular_file(entry))
-      {
-        files.push_back(entry.path().filename().string());
-      }
-    }
-  }
-  return files;
-}
 
 double Convert_DatetoTime(string datestring, string refstring)
 {
@@ -140,6 +132,18 @@ double Convert_DatetoTime(string datestring, string refstring)
     return diffInHours;
 }
 
+double GetOnlyHour(string refstring)
+{
+    std::tm referenceDate = {};
+    istringstream referenceDateStream(refstring);
+    referenceDateStream >> get_time(&referenceDate, "%d-%m-%Y %H:%M:%S");
+
+    time_t referenceTimeInSeconds = mktime(&referenceDate);
+
+    double diffInHours = referenceDate.tm_hour + referenceDate.tm_min/60.0 + referenceDate.tm_sec/3600.0; 
+
+    return diffInHours;
+}
 
 void InitRunHistograms()
 {
@@ -165,29 +169,27 @@ void InitHistograms()
   }
 
   double t_min = file_Time[0].first;
-  double t_max = file_Time[file_Time.size()-1].second;
+  int t_max = (int)file_Time[file_Time.size()-1].second + 1;
   n_bin_time = (int)(t_max - t_min) / bin_time;
-
-  cout<<t_min<<" "<<t_max<<" "<<n_bin_time<<endl;
   //////////////////////////////////////////
 
   for (int i = 0; i < SIGNAL_MAX; i++)
   {
     if (IsDetectorSiliStrip(i))
     {
-      HSiliconRun_Channel_Unmatched[i] = new TH2D(("HSiliconRun_Channel_Unmatched_" + detectorName[i]).c_str(), ("HSiliconRun_Channel_Unmatched_" + detectorName[i]).c_str(), n_bin_time, t_min, t_max,  eSiliN, eSiliMin, eSiliMax);
+      HSiliconRun_Channel_Unmatched[i] = new TH2D(("HSiliconRun_Channel_Unmatched_" + detectorName[i]).c_str(), ("HSiliconRun_Channel_Unmatched_" + detectorName[i]).c_str(), t_max, t_min, t_max,  eSiliN, eSiliMin, eSiliMax);
       HSiliconRun_Channel_Unmatched[i]->GetXaxis()->SetTitle("Time (h)");
       HSiliconRun_Channel_Unmatched[i]->GetYaxis()->SetTitle("Channel");
       HSiliconRun_Channel_Unmatched[i]->GetXaxis()->CenterTitle();
       HSiliconRun_Channel_Unmatched[i]->GetYaxis()->CenterTitle();
 
-      HSiliconRun_Channel_Matched[i] = new TH2D(("HSiliconRun_Channel_Matched_" + detectorName[i]).c_str(), ("HSiliconRun_Channel_Matched_" + detectorName[i]).c_str(), n_bin_time, t_min, t_max,  eSiliN, eSiliMin, eSiliMax);
-      HSiliconRun_Channel_Matched[i]->GetXaxis()->SetTitle("Runs");
+      HSiliconRun_Channel_Matched[i] = new TH2D(("HSiliconRun_Channel_Matched_" + detectorName[i]).c_str(), ("HSiliconRun_Channel_Matched_" + detectorName[i]).c_str(), t_max, t_min, t_max,  eSiliN, eSiliMin, eSiliMax);
+      HSiliconRun_Channel_Matched[i]->GetXaxis()->SetTitle("Time (h)");
       HSiliconRun_Channel_Matched[i]->GetYaxis()->SetTitle("Channel");
       HSiliconRun_Channel_Matched[i]->GetXaxis()->CenterTitle();
       HSiliconRun_Channel_Matched[i]->GetYaxis()->CenterTitle();
 
-      HSiliconRun[i] = new TH2D(("HSiliconRun"+ detectorName[i]).c_str(), ("HSiliconRun"+ detectorName[i]).c_str(), n_bin_time, t_min, t_max, 10000, 0, 10000);
+      HSiliconRun[i] = new TH2D(("HSiliconRun"+ detectorName[i]).c_str(), ("HSiliconRun"+ detectorName[i]).c_str(), t_max, t_min, t_max, 5000, 0, 10000);
       HSiliconRun[i]->GetXaxis()->SetTitle("Time (h)");
       HSiliconRun[i]->GetYaxis()->SetTitle("Energy [keV]");
       HSiliconRun[i]->GetXaxis()->CenterTitle();
@@ -205,59 +207,53 @@ void InitHistograms()
       HSilicon_Channel_Matched[i]->GetXaxis()->CenterTitle();
       HSilicon_Channel_Matched[i]->GetYaxis()->CenterTitle();
 
-      HSilicon[i] = new TH1D(("HStrip_" + detectorName[i]).c_str(), ("HStrip_" + detectorName[i]).c_str(), 10000, 0, 10000);
+      HSilicon[i] = new TH1D(("HStrip_" + detectorName[i]).c_str(), ("HStrip_" + detectorName[i]).c_str(), 30000, 0, 10000);
       HSilicon[i]->GetXaxis()->SetTitle("Energy [keV]");
       HSilicon[i]->GetYaxis()->SetTitle("Counts");
       HSilicon[i]->GetXaxis()->CenterTitle();
       HSilicon[i]->GetYaxis()->CenterTitle();
 
-      HSilicon_coinc[i] = new TH1D(("HStrip_coinc_" + detectorName[i]).c_str(), ("HStrip_coinc_" + detectorName[i]).c_str(), 10000, 0, 10000);
+      HSilicon_coinc[i] = new TH1D(("HStrip_coinc_" + detectorName[i]).c_str(), ("HStrip_coinc_" + detectorName[i]).c_str(), 30000, 0, 10000);
       HSilicon_coinc[i]->GetXaxis()->SetTitle("Energy [keV]");
       HSilicon_coinc[i]->GetYaxis()->SetTitle("Counts");
       HSilicon_coinc[i]->GetXaxis()->CenterTitle();
       HSilicon_coinc[i]->GetYaxis()->CenterTitle();
 
-      HSilicon_no_coinc[i] = new TH1D(("HStrip_no_coinc_" + detectorName[i]).c_str(), ("HStrip_no_coinc_" + detectorName[i]).c_str(), 10000, 0, 10000);
+      HSilicon_no_coinc[i] = new TH1D(("HStrip_no_coinc_" + detectorName[i]).c_str(), ("HStrip_no_coinc_" + detectorName[i]).c_str(), 30000, 0, 10000);
       HSilicon_no_coinc[i]->GetXaxis()->SetTitle("Energy [keV]");
       HSilicon_no_coinc[i]->GetYaxis()->SetTitle("Counts");
       HSilicon_no_coinc[i]->GetXaxis()->CenterTitle();
       HSilicon_no_coinc[i]->GetYaxis()->CenterTitle();
     }
-
-    if (IsDetectorBetaHigh(i))
+  }
+    for (int i = 1; i <= BETA_SIZE; i++)
     {
-      HSiPM[GetDetectorChannel(i)] = new TH1D(("HSiPM_M"+to_string(GetDetectorChannel(i))).c_str(), ("HSiPM_M"+to_string(GetDetectorChannel(i))).c_str(), eLowN/10, eLowMin, eLowMax*5);
+      HSiPMRun[GetDetectorChannel(i)] = new TH2D(("HSiPMRun_M"+to_string(i)).c_str(), ("HSiPMRun_M"+to_string(i)).c_str(), t_max, t_min, t_max, eLowN/10, eLowMin, eLowMax*8);
+      HSiPMRun[GetDetectorChannel(i)]->GetXaxis()->SetTitle("Time (h)");
+      HSiPMRun[GetDetectorChannel(i)]->GetYaxis()->SetTitle("Channel");
+      HSiPMRun[GetDetectorChannel(i)]->GetXaxis()->CenterTitle();
+      HSiPMRun[GetDetectorChannel(i)]->GetYaxis()->CenterTitle();
+
+      HSiPM[GetDetectorChannel(i)] = new TH1D(("HSiPM_M"+to_string(i)).c_str(), ("HSiPM_M"+to_string(i)).c_str(), eLowN/10, eLowMin, eLowMax*5);
       HSiPM[GetDetectorChannel(i)]->GetXaxis()->SetTitle("Channel");
       HSiPM[GetDetectorChannel(i)]->GetYaxis()->SetTitle("Counts");
       HSiPM[GetDetectorChannel(i)]->GetXaxis()->CenterTitle();
       HSiPM[GetDetectorChannel(i)]->GetYaxis()->CenterTitle();
 
-      HSiPM_F[GetDetectorChannel(i)] = new TH1D(("HSiPM_F_M"+to_string(GetDetectorChannel(i))).c_str(), ("HSiPM_F_M"+to_string(GetDetectorChannel(i))).c_str(), eLowN/10, eLowMin, eLowMax*5);
+      HSiPM_F[GetDetectorChannel(i)] = new TH1D(("HSiPM_F_M"+to_string(i)).c_str(), ("HSiPM_F_M"+to_string(i)).c_str(), eLowN/10, eLowMin, eLowMax*5);
       HSiPM_F[GetDetectorChannel(i)]->GetXaxis()->SetTitle("Channel");
       HSiPM_F[GetDetectorChannel(i)]->GetYaxis()->SetTitle("Counts");
       HSiPM_F[GetDetectorChannel(i)]->GetXaxis()->CenterTitle();
       HSiPM_F[GetDetectorChannel(i)]->GetYaxis()->CenterTitle();
 
-      HSiPM_GT[GetDetectorChannel(i)] = new TH1D(("HSiPM_GT_M"+to_string(GetDetectorChannel(i))).c_str(), ("HSiPM_GT_M"+to_string(GetDetectorChannel(i))).c_str(), eLowN/10, eLowMin, eLowMax*5);
+      HSiPM_GT[GetDetectorChannel(i)] = new TH1D(("HSiPM_GT_M"+to_string(i)).c_str(), ("HSiPM_GT_M"+to_string(i)).c_str(), eLowN/10, eLowMin, eLowMax*5);
       HSiPM_GT[GetDetectorChannel(i)]->GetXaxis()->SetTitle("Channel");
       HSiPM_GT[GetDetectorChannel(i)]->GetYaxis()->SetTitle("Counts");
       HSiPM_GT[GetDetectorChannel(i)]->GetXaxis()->CenterTitle();
       HSiPM_GT[GetDetectorChannel(i)]->GetYaxis()->CenterTitle();
     }
-  }
   
-}
-void WriteRunHistograms(TFile* file, int i, double unmatched, double matched)
-{
-  pair<string, string> string_time = GetTime(file);
-  start_time = Convert_DatetoTime(string_time.first, file_string_Time[0].first);
-  stop_time = Convert_DatetoTime(string_time.second, file_string_Time[0].first);
-
-  for (double j = start_time; j < stop_time; j += bin_time)
-  {
-    HSiliconRun_Channel_Unmatched[i]->Fill(j, unmatched);
-    HSiliconRun_Channel_Matched[i]->Fill(j, matched);
-  }
+  
 }
 
 void WriteHistograms()
@@ -266,6 +262,11 @@ void WriteHistograms()
   TDirectory *dir_HSilicon_Channel_Unmatched = Merged_File->mkdir("Silicon_Unmatched");
   TDirectory *dir_HSilicon_Channel_Matched = Merged_File->mkdir("Silicon_Matched");
   TDirectory *dir_HSilicon = Merged_File->mkdir("Silicon_Calibrated");
+
+  TDirectory *dir_HSiPM = Merged_File->mkdir("SiPM");
+
+  double first_time = GetOnlyHour(file_string_Time[0].first);
+  cout<<GetOnlyHour(file_string_Time[0].first)<<endl;
   for (int i = 0; i < SIGNAL_MAX; i++)
   {
     if (IsDetectorSiliStrip(i))
@@ -276,9 +277,22 @@ void WriteHistograms()
 
       dir_HSilicon_Channel_Matched->cd();
       HSilicon_Channel_Matched[i]->Write();
-      HSiliconRun_Channel_Matched[i]->Write();
+
+      TCanvas *c1 = new TCanvas("c", "c", 800, 600);
+      c1->cd();
+      TAxis *xaxis = HSiliconRun_Channel_Matched[i]->GetXaxis();     
+      for (int bin = 1; bin <= xaxis->GetNbins(); ++bin) {
+        int hourmodulo = (first_time + bin) / 24 - static_cast<int>(first_time+bin/24);;
+        xaxis->SetBinLabel(bin, Form("%d", hourmodulo));
+      }
+      HSiliconRun_Channel_Matched[i]->GetXaxis()->SetTitle("Time (h modulo 24)");
+      HSiliconRun_Channel_Matched[i]->Draw("HIST");
+      c1->Write();
+      delete c1;
       
       dir_HSilicon->cd();
+      HSilicon[i]->Write();
+      HSiliconRun[i]->Write();
       TCanvas *c = new TCanvas((detectorName[i]).c_str(), (detectorName[i]).c_str(), 800, 600);
       c->cd();
       HSilicon[i]->SetLineColor(kBlack);
@@ -293,7 +307,8 @@ void WriteHistograms()
   }
 
   /////Multiplicity
-  for (int i = 0; i < BETA_SIZE + 1; i++)
+  dir_HSiPM->cd();
+  for (int i = 0; i <= BETA_SIZE; i++)
   {
     HSiPM[GetDetectorChannel(i)]->Write();
     HSiPM_F[GetDetectorChannel(i)]->Write();
@@ -303,60 +318,21 @@ void WriteHistograms()
 
 void InitFiles()
 {
-  vector<string> Grouped_Files = listFilesInDirectory("./Grouped/");
-  vector<string> Matched_Files = listFilesInDirectory("./Matched/");
 
-  auto processFiles = [&](const vector<string> &files)
+  if (Catcher == "Al")
   {
-    for (const auto &file : files)
-    {
-      boost::filesystem::path filePath(file);
-      string base_name = filePath.stem().string();
-
-      string suffix1 = "_matched";
-      string suffix2 = "_grouped";
-      if (base_name.rfind(suffix1) != string::npos)
-      {
-        base_name = base_name.substr(0, base_name.size() - suffix1.size());
-      }
-      else if (base_name.rfind(suffix2) != string::npos)
-      {
-        base_name = base_name.substr(0, base_name.size() - suffix2.size());
-      }
-
-      if (fileMap.find(base_name) == fileMap.end())
-      {
-        fileMap[base_name] = vector<string>();
-      }
-
-      fileMap[base_name].push_back(file);
-    }
-  };
-
-  processFiles(Grouped_Files);
-  processFiles(Matched_Files);
-
-  for (auto it = fileMap.begin(); it != fileMap.end();)
+    RunNumbers = {11, 12, 13, 14, 15, 16, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 36, 37, 38, 39, 40};
+  }
+  else if (Catcher == "Mylar")
   {
-    if (it->second.size() != 2)
-    {
-      it = fileMap.erase(it);
-    }
-    else
-    {
-      ++it;
-    }
+    RunNumbers = {49, 20, 51, 52, 53, 55, 56, 57, 58, 59, 60, 61, 62};
   }
 
-  // Print the map
-  // for (const auto &pair : fileMap)
-  // {
-  //   cout << pair.first << ":\n";
-  //   for (const auto &file : pair.second)
-  //   {
-  //     cout << "  " << file << "\n";
-  //   }
-  // }
+  for (int run : RunNumbers)
+  {
+    runs.push_back(run);
+  }
+
 }
 
 void InitMatching()
@@ -388,21 +364,39 @@ int MakeCalibration() ///////////////////////////////++++++FIT
   {
     if (IsDetectorSiliStrip(i))
     {
-      HSilicon_Channel_Matched[i]->GetXaxis()->SetRangeUser(40000, 42000);
-      detectorCalib[i] /= HSilicon_Channel_Matched[i]->GetMean();
+      // HSilicon_Channel_Matched[i]->GetXaxis()->SetRangeUser(detectorRangeMin_Fermi[i], detectorRangeMax_Fermi[i]);
+      // double fermi[2] = {HSilicon_Channel_Matched[i]->GetMean(), detectorCalib_Fermi[i]};
+      // HSilicon_Channel_Matched[i]->GetXaxis()->SetRangeUser(detectorRangeMin_GT[i], detectorRangeMax_GT[i]);
+      // double gt[2] = {HSilicon_Channel_Matched[i]->GetMean(), detectorCalib_GT[i]};
+
+      TGraphErrors* graph = new TGraphErrors();
+
+      HSilicon_Channel_Matched[i]->GetXaxis()->SetRangeUser(40000, 44000);
+      graph->SetPoint(0, detectorCalib_Fermi[i], HSilicon_Channel_Matched[i]->GetMean());
+      graph->SetPointError(0, 0, HSilicon_Channel_Matched[i]->GetMeanError());
+
+      HSilicon_Channel_Matched[i]->GetXaxis()->SetRangeUser(25000, 27000);
+      graph->SetPoint(0, detectorCalib_GT[i], HSilicon_Channel_Matched[i]->GetMean());
+      graph->SetPointError(0, 0, HSilicon_Channel_Matched[i]->GetMeanError());
+
+      linear->SetParameters(0, 12);
+      graph->Fit("linear");
+
+      detectorCalib[i] = linear->GetParameter(0);
     }
-    
   }
 }
 
 int InitCalib()
 {
+
+  ///////////////////FOR FERMI
   int error = 0;
   string CalibDir = "../Calib/";
   string CalibFileName = "Sim_32Ar_MylarAl_F.txt";
   ifstream file(CalibDir + CalibFileName);
 
-  for (auto &value : detectorCalib)
+  for (auto &value : detectorCalib_Fermi)
   {
     value = 0.;
   }
@@ -424,7 +418,6 @@ int InitCalib()
 
       int index = 0;
       int strip;
-      cout<<DetName<<endl;
       string stripstr(1, DetName.back());
       if (stripstr == "R")
       {
@@ -440,7 +433,7 @@ int InitCalib()
         {
           if (GetDetector(i) <= 4 and GetDetectorChannel(i) == strip)
           {
-            detectorCalib[i] = E;
+            detectorCalib_Fermi[i] = E;
           }
         }
       }
@@ -450,7 +443,7 @@ int InitCalib()
         {
           if (GetDetector(i) > 4 and GetDetectorChannel(i) == strip)
           {
-            detectorCalib[i] = E;
+            detectorCalib_Fermi[i] = E;
           }
         }
       }
@@ -462,23 +455,86 @@ int InitCalib()
     error = 1;
   }
 
-  for (int i = 0; i < SIGNAL_MAX; i++)
+  ////////////////////////////////////////
+  CalibFileName = "Sim_32Ar_MylarAl_GT1.txt";
+  ifstream fileGT(CalibDir + CalibFileName);
+
+  for (auto &value : detectorCalib_Fermi)
   {
-    if (IsDetectorBetaHigh(i))
+    value = 0.;
+  }
+
+  if (fileGT.is_open())
+  {
+    GLogMessage("<SAM> Calibration file found");
+
+    Calibration = true;
+
+    string line;
+    int i = 0;
+    while (getline(fileGT, line))
     {
-      detectorCalib[i] = 1390./24000000;
-    }
-    if (IsDetectorBetaLow(i))
-    {
-      detectorCalib[i] = 6000./9000000;
+      istringstream iss(line);
+      double E;
+      string DetName;
+      iss >> DetName >> E;
+
+      int index = 0;
+      int strip;
+      string stripstr(1, DetName.back());
+      if (stripstr == "R")
+      {
+        strip = 6;
+      }
+      else
+      {
+        strip = stoi(stripstr);
+      }
+      if (DetName.find("Up") != string::npos)
+      {
+        for (int i = 0; i < SIGNAL_MAX; i++)
+        {
+          if (GetDetector(i) <= 4 and GetDetectorChannel(i) == strip)
+          {
+            detectorCalib_GT[i] = E;
+          }
+        }
+      }
+      else if (DetName.find("Down") != string::npos)
+      {
+        for (int i = 0; i < SIGNAL_MAX; i++)
+        {
+          if (GetDetector(i) > 4 and GetDetectorChannel(i) == strip)
+          {
+            detectorCalib_GT[i] = E;
+          }
+        }
+      }
     }
   }
+  else
+  {
+    GLogMessage("<SAM> No Calibration file found");
+    error = 1;
+  }
+
+  // for (int i = 0; i < SIGNAL_MAX; i++)
+  // {
+  //   if (IsDetectorBetaHigh(i))
+  //   {
+  //     detectorCalib[i] = 1390./24000000;
+  //   }
+  //   if (IsDetectorBetaLow(i))
+  //   {
+  //     detectorCalib[i] = 6000./9000000;
+  //   }
+  // }
 
   // FOR CHECK
   // int index = 0;
   // for (auto &name : detectorName)
   // {
-  //   cout << name << "       " << detectorCalib[index] << endl;
+  //   cout << name << "       " << detectorCalib_Fermi[index] << endl;
   //   index++;
   // }
 

@@ -1,8 +1,24 @@
 #include "Merger.hh"
 #include <ctime>
 
-int main()
+int main(int argc, char *argv[])
 {
+
+    if (argc == 2)
+    {
+        if (argv[1] == "Al")
+        {
+            Catcher = "Al";
+        }
+        else
+        {
+            Catcher = "Mylar";
+        }
+    }
+    else
+    {
+        Catcher = "Al";
+    }
 
     clock_t start = clock(), Current;
 
@@ -18,23 +34,29 @@ int main()
     
     InitDetectors("../Analysis/ReadFaster/Data/detectors.dat");
     
-    for (auto &files : fileMap)
+    for (auto &run : runs)
     {
-        Matched_File = new TFile((dirNameMatched + files.first+"_matched.root").c_str(), "READ");
+        Matched_File = new TFile((dirNameMatched + "run_0" + to_string(run) +"_32Ar_matched.root").c_str(), "READ");
         SetTime(Matched_File);
     }
 
+
+    ///////////////////// CREATE RUNs FILES & BUILD PROTON HISTOGRAM FOR CALIBRATION ///////////////
     InitHistograms();
     InitRunHistograms();
 
-    for (auto &files : fileMap)
+    for (auto &run : runs)
     {
-        cout<<"<SAM> Calibration : "<<files.first<<endl;
-        Matched_File = new TFile((dirNameMatched + files.first+"_matched.root").c_str(), "READ");
+        cout<<"<SAM> Calibration on run : "<<run<<endl;
+        Matched_File = new TFile((dirNameMatched + "run_0" + to_string(run) +"_32Ar_matched.root").c_str(), "READ");
         Tree_Read = (TTree *)Matched_File->Get("Tree_LowHighMatched");
         TTreeReader *Reader = new TTreeReader(Tree_Read);
         TTreeReaderArray<Signal> Tree_Silicon(*Reader, "Tree_Silicon");
         TTreeReaderArray<Signal> Tree_SiPM(*Reader, "Tree_SiPM");
+
+        pair<string, string> string_time = GetTime(Matched_File);
+        start_time = Convert_DatetoTime(string_time.first, file_string_Time[0].first);
+        stop_time = Convert_DatetoTime(string_time.second, file_string_Time[0].first);
 
         InitMatching();
         
@@ -47,10 +69,12 @@ int main()
                 ProgressBar(cEntry, TotalEntries, start, Current);
             }
 
-            HSilicon_Channel_Unmatched[Tree_Silicon[0].Label]->Fill(Tree_Silicon[0].Channel);
-            HSilicon_Channel_Matched[Tree_Silicon[0].Label]->Fill(detectorMatching[Tree_Silicon[0].Label] * Tree_Silicon[0].Channel);
+            HSilicon_Channel_Unmatched[Tree_Silicon[0].Label]->Fill(1/detectorMatching[Tree_Silicon[0].Label] * Tree_Silicon[0].Channel);
+            HSilicon_Channel_Matched[Tree_Silicon[0].Label]->Fill(Tree_Silicon[0].Channel);
 
-            WriteRunHistograms(Matched_File, Tree_Silicon[0].Label, Tree_Silicon[0].Channel, detectorMatching[Tree_Silicon[0].Label] * Tree_Silicon[0].Channel);
+
+            HSiliconRun_Channel_Unmatched[Tree_Silicon[0].Label]->Fill(start_time + (double)Tree_Silicon[0].Time*1e-9/3600, 1/detectorMatching[Tree_Silicon[0].Label] * Tree_Silicon[0].Channel);
+            HSiliconRun_Channel_Matched[Tree_Silicon[0].Label]->Fill(start_time + (double)Tree_Silicon[0].Time*1e-9/3600, Tree_Silicon[0].Channel);
         }
 
         
@@ -60,16 +84,21 @@ int main()
     InitCalib();         /////// find detector calib from simulation
     MakeCalibration();   /////// compute calibratio coeficient 
 
-    for (auto &files : fileMap)
+    for (auto &run : runs)
     {
-        cout<<"<SAM> Merging : "<<files.first<<endl;
-        Matched_File = new TFile((dirNameMatched + files.first + "_matched.root").c_str(), "READ");
+        cout<<"<SAM> Merging on run : "<<run<<endl;
+        Matched_File = new TFile((dirNameMatched + "run_0" + to_string(run) +"_32Ar_matched.root").c_str(), "READ");
         Tree_Read = (TTree *)Matched_File->Get("Tree_LowHighMatched");
         TTreeReader *Reader = new TTreeReader(Tree_Read);
         TTreeReaderArray<Signal> Tree_Silicon(*Reader, "Tree_Silicon");
         TTreeReaderArray<Signal> Tree_SiPM(*Reader, "Tree_SiPM");
 
+        pair<string, string> string_time = GetTime(Matched_File);
+        start_time = Convert_DatetoTime(string_time.first, file_string_Time[0].first);
+        stop_time = Convert_DatetoTime(string_time.second, file_string_Time[0].first);
+
         InitMatching();
+
         int TotalEntries = Tree_Read->GetEntries();
         while (Reader->Next())
         {
@@ -79,7 +108,9 @@ int main()
                 ProgressBar(cEntry, TotalEntries, start, Current);
             }
 
-            double Silicon_Energy = detectorCalib[Tree_Silicon[0].Label] * detectorMatching[Tree_Silicon[0].Label] * Tree_Silicon[0].Channel;
+            double Silicon_Energy = 1/detectorCalib[Tree_Silicon[0].Label] * Tree_Silicon[0].Channel;
+
+            HSiliconRun[Tree_Silicon[0].Label]->Fill(start_time + (double)Tree_Silicon[0].Time *1e-9/3600, Silicon_Energy);
 
             HSilicon[Tree_Silicon[0].Label]->Fill(Silicon_Energy);
 

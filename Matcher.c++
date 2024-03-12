@@ -36,9 +36,12 @@ int main(int argc, char *argv[])
     TFile *Ref5678_File = new TFile(("./Cleaned/run_0" + to_string(RunRef_5678) + "_32Ar_cleaned.root").c_str(), "READ");
     TFile *Cal_File = new TFile(("./Cleaned/run_0" + to_string(RunCal) + "_32Ar_cleaned.root").c_str(), "READ");
 
-    TGraphErrors *Result = new TGraphErrors("Proporionality", "Proportionality");
-    Result->SetDrawOption("*AP");
-    Result->SetTitle("Proportionality;Detector;Proportionality");
+    TDirectory *dir_Chi2Silicon = OutputFile->mkdir("Silicon_Matching");
+    dir_Chi2Silicon->cd();
+    TGraphErrors *Result_Si = new TGraphErrors();
+    Result_Si->SetDrawOption("*AP");
+    Result_Si->SetName("Silicon_Matching");
+    Result_Si->SetTitle("Silicon_Matching;Detector Label;Silicon_Matching");
     int result_counter = 0;
     InitDetectors("../Analysis/ReadFaster/Data/detectors.dat");
 
@@ -71,7 +74,7 @@ int main(int argc, char *argv[])
                 dir = "Rear";
             }
 
-            Ref_Hist = (TH1I *)Ref_File->Get((dir + "_Channel" + "/H" + dir + "_Channel_C_" + detectorName[i]).c_str());
+            Ref_Hist = (TH1D *)Ref_File->Get((dir + "_Channel" + "/H" + dir + "_Channel_C_" + detectorName[i]).c_str());
             Tree = (TTree *)Cal_File->Get(("Tree_" + det + "_" + detectorName[i]).c_str());
             Reader = new TTreeReader(Tree);
 
@@ -110,9 +113,9 @@ int main(int argc, char *argv[])
             Ref_Hist->Draw("HIST");
 
             Reader->Restart();
-            TTreeReaderValue<int> Channel(*Reader, "Channel");
+            TTreeReaderValue<double> Channel(*Reader, "Channel");
 
-            TH1I *TreeHist = (TH1I *)Ref_Hist->Clone((detectorName[i] + "_" + to_string(bestPar[0])).c_str());
+            TH1D *TreeHist = (TH1D *)Ref_Hist->Clone((detectorName[i] + "_" + to_string(bestPar[0])).c_str());
             TreeHist->Reset();
 
             while (Reader->Next())
@@ -126,47 +129,77 @@ int main(int argc, char *argv[])
             c->cd(2);
             graph->Draw("*AP");
             OutputFile->cd();
+            dir_Chi2Silicon->cd();
             c->Write();
 
             result_counter++;
-            Result->SetPoint(result_counter, i, bestPar[0]);
-            detectorMatching[i] = bestPar[0];
-            Result->SetPointError(result_counter, 0, error);
+            Result_Si->SetPoint(result_counter, i, bestPar[0]);
+            SiliconMatching[i] = bestPar[0];
+            Result_Si->SetPointError(result_counter, 0, error);
         }
     }
+    dir_Chi2Silicon->cd();
+    Result_Si->Write();
 
     /////// Coef between Low and High /////
-    for (size_t i = 0; i < detectorNum; ++i)
+    TDirectory *dir_Chi2SiPMLowHigh = OutputFile->mkdir("SiPM_LowHigh_Matching");
+    dir_Chi2Silicon->cd();
+    TGraphErrors *Result_SiPM_LowHigh = new TGraphErrors();
+    Result_SiPM_LowHigh->SetDrawOption("*AP");
+    Result_SiPM_LowHigh->SetName("SiPM_LowHigh_Matching");
+    Result_SiPM_LowHigh->SetTitle("SiPM_LowHigh_Matching;Detector Label;SiPM_LowHigh_Matching");
+    result_counter=0;
+    for (int i = 1; i <= BETA_SIZE; i++)
     {
-        if (IsDetectorBetaHigh(i))
-        {
-            TCanvas *canvas = (TCanvas *)Cal_File->Get(("SiPM_Multiplicities/SiPM_" + to_string(GetDetectorChannel(i))).c_str());
-            TGraph *graph = (TGraph *)canvas->GetPrimitive(("SiPM_" + to_string(GetDetectorChannel(i))).c_str());
+        TCanvas *canvas = (TCanvas *)Cal_File->Get(("SiPM_Multiplicities/SiPM_" + to_string(GetDetectorChannel(i))).c_str());
+        TGraph *graph = (TGraph *)canvas->GetPrimitive(("SiPM_" + to_string(GetDetectorChannel(i))).c_str());
 
+        double par = 0;
+        double err = 0;
+        if (graph->GetN() != 0)
+        {
             TF1 *f1 = new TF1("f1", "[0]*x", 60000, 180000);
             f1->SetParameter(0, 10);
             graph->Fit(f1, "QR");
 
-            double par = f1->GetParameter(0);
-            double err = f1->GetParError(0);
+            par = f1->GetParameter(0);
+            err = f1->GetParError(0);
 
             OutputFile->cd();
             TCanvas *c = new TCanvas(("SiPM_" + to_string(GetDetectorChannel(i))).c_str(), ("SiPM_" + to_string(GetDetectorChannel(i))).c_str(), 800, 600);
             c->cd();
             graph->Draw("*AP");
             f1->Draw("SAME");
+            dir_Chi2Silicon->cd();
             c->Write();
             delete c;
-
-            result_counter++;
-            Result->SetPoint(result_counter, i, par);
-            detectorMatching[i] = par;
-            Result->SetPointError(result_counter, 0, err);
         }
+        else
+        {
+            par = 0;
+            err = 0;
+
+            OutputFile->cd();
+            TCanvas *c = new TCanvas(("SiPM_" + to_string(GetDetectorChannel(i))).c_str(), ("SiPM_" + to_string(GetDetectorChannel(i))).c_str(), 800, 600);
+            c->cd();
+            dir_Chi2Silicon->cd();
+            c->Write();
+            delete c;
+        }
+
+        
+
+        result_counter++;
+        Result_SiPM_LowHigh->SetPoint(result_counter, i, par);
+        SiPMLowHighMatching[i] = par;
+        Result_SiPM_LowHigh->SetPointError(result_counter, 0, err);
     }
 
-    /////// Merging Low and High, apply matching on Silicon ////
+    dir_Chi2Silicon->cd();googlre
+    Result_SiPM_LowHigh->Write();
 
+    OutputFile->cd();
+    /////// Merging Low and High, apply matching on Silicon ///////
     InitHistograms();
     Tree_Read = (TTree *)Cal_File->Get("Tree");
     Reader = new TTreeReader(Tree_Read);
@@ -187,37 +220,27 @@ int main(int argc, char *argv[])
         //////MATCHING SILICON
         for (auto &signal : *Tree_Silicon)
         {
-            signal.Channel = detectorMatching[signal.Label] * signal.Channel;
+            signal.Channel = SiliconMatching[signal.Label] * signal.Channel;
             Tree_Silicon_W.push_back(signal);
         }
         
 
-        //////MATCHING AND MERGING SiPM
+        //////MATCHING AND MERGING SiPM Low and High
         bool doHigh = true;
 
         for (auto &signal : *Tree_SiPMHigh)
         {
-            if (1 / detectorMatching[signal.Label] * signal.Channel > 180000)
+            if (1 / SiPMLowHighMatching[signal.Label] * signal.Channel > 180000)
             {
                 doHigh = false;
             }
-        }
-
-        for (auto &signal : *Tree_SiPMHigh)
-        {
-            HSiPMHigh_Channel_all[GetDetectorChannel(signal.Label)]->Fill(signal.Channel);
-        }
-
-        for (auto &signal : *Tree_SiPMLow)
-        {
-            HSiPMLow_Channel_all[GetDetectorChannel(signal.Label)]->Fill(signal.Channel);
         }
 
         if (doHigh)
         {
             for (auto &signal : *Tree_SiPMHigh)
             {
-                signal.Channel = 1 / detectorMatching[signal.Label] * signal.Channel;
+                signal.Channel = 1 / SiPMLowHighMatching[signal.Label] * signal.Channel;
                 Tree_SiPM_W.push_back(signal);
 
                 HSiPMHigh_Channel[GetDetectorChannel(signal.Label)]->Fill(signal.Channel);
@@ -234,15 +257,31 @@ int main(int argc, char *argv[])
             }
         }
         Tree_Write->Fill();
+
+        /////FOR SAVING BEFORE MERGING//////
+        for (auto &signal : *Tree_SiPMHigh)
+        {
+            HSiPMHigh_Channel_all[GetDetectorChannel(signal.Label)]->Fill(signal.Channel);
+        }
+
+        for (auto &signal : *Tree_SiPMLow)
+        {
+            HSiPMLow_Channel_all[GetDetectorChannel(signal.Label)]->Fill(signal.Channel);
+        }
+        ///////////////////////////////////
     }
 
     Tree_Write->Write();
-    Result->Write();
-    WriteHistograms();
+    
 
-
-    ////// Matching all SiPMs /////
-    Ref_Hist = HSiPM_Channel[1];    ///SiPM 1 is the reference
+    TDirectory *dir_Chi2SiPMs = OutputFile->mkdir("SiPMs_Matching");
+    dir_Chi2SiPMs->cd();
+    TGraphErrors *Result_SiPMs = new TGraphErrors();
+    Result_SiPMs->SetDrawOption("*AP");
+    Result_SiPMs->SetTitle("SiPMs_Matching;Detector Label;SiPMs_Matching");
+    result_counter=0;
+    ////// Matching all SiPMs/////
+    Ref_Hist = HSiPM_Channel[1];
     range_low = 400000;
     range_high = 1000000;
     Tree = (TTree *)OutputFile->Get("Tree_LowHighMatched");
@@ -287,7 +326,7 @@ int main(int argc, char *argv[])
 
             Reader->Restart();
             TTreeReaderArray<Signal> *SiPM = new TTreeReaderArray<Signal>(*Reader, "Tree_SiPM");
-            TH1I *TreeHist = (TH1I *)Ref_Hist->Clone((detectorName[i] + "_" + to_string(bestPar[0])).c_str());
+            TH1D *TreeHist = (TH1D *)Ref_Hist->Clone((detectorName[i] + "_" + to_string(bestPar[0])).c_str());
             TreeHist->Reset();
             while (Reader->Next())
             {
@@ -299,10 +338,11 @@ int main(int argc, char *argv[])
             }
 
             TreeHist->SetLineColor(kRed);
+            TreeHist->GetXaxis()->UnZoom();
             TreeHist->Draw("SAME");
 
             c->cd(2);
-            TH1I *h = (TH1I *)Ref_Hist->Clone("Diff");
+            TH1D *h = (TH1D *)Ref_Hist->Clone("Diff");
             h->Add(TreeHist, -1.0);
             h->Draw("EP");
 
@@ -313,11 +353,89 @@ int main(int argc, char *argv[])
             c->Write();
 
             result_counter++;
-            Result->SetPoint(result_counter, i, bestPar[0]);
-            detectorMatching[i] = bestPar[0];
-            // Result->SetPointError(result_counter, 0, error);
+            Result_SiPMs->SetPoint(result_counter, i, bestPar[0]);
+            SiPMsMatching[i] = bestPar[0];
+            Result_SiPMs->SetPointError(result_counter, 0, error);
     }
 
+    Result_SiPMs->Write();
+
+
+    /////// Apply Matching betwwen SiPM to Tree ///////
+    
+    // InitHistograms();
+    // Tree_Read = (TTree *)Cal_File->Get("Tree");
+    // Reader = new TTreeReader(Tree_Read);
+    // TTreeReaderArray<Signal> *Tree_Silicon = new TTreeReaderArray<Signal>(*Reader, "Tree_Silicon");
+    // TTreeReaderArray<Signal> *Tree_SiPMHigh = new TTreeReaderArray<Signal>(*Reader, "Tree_SiPMHigh");
+    // TTreeReaderArray<Signal> *Tree_SiPMLow = new TTreeReaderArray<Signal>(*Reader, "Tree_SiPMLow");
+
+    // Tree_Write = new TTree("Tree_LowHighMatched", "Tree_LowHighMatched");
+    // vector<Signal> Tree_Silicon_W;
+    // vector<Signal> Tree_SiPM_W;
+    // Tree_Write->Branch("Tree_Silicon", &Tree_Silicon_W);
+    // Tree_Write->Branch("Tree_SiPM", &Tree_SiPM_W);
+
+    // while (Reader->Next())
+    // {
+    //     Tree_Silicon_W.clear();
+    //     Tree_SiPM_W.clear();
+    //     //////MATCHING SILICON
+    //     for (auto &signal : *Tree_Silicon)
+    //     {
+    //         signal.Channel = SiliconMatching[signal.Label] * signal.Channel;
+    //         Tree_Silicon_W.push_back(signal);
+    //     }
+        
+
+    //     //////MATCHING AND MERGING SiPM Low and High
+    //     bool doHigh = true;
+
+    //     for (auto &signal : *Tree_SiPMHigh)
+    //     {
+    //         if (1 / SiPMLowHighMatching[signal.Label] * signal.Channel > 180000)
+    //         {
+    //             doHigh = false;
+    //         }
+    //     }
+
+    //     for (auto &signal : *Tree_SiPMHigh)
+    //     {
+    //         HSiPMHigh_Channel_all[GetDetectorChannel(signal.Label)]->Fill(signal.Channel);
+    //     }
+
+    //     for (auto &signal : *Tree_SiPMLow)
+    //     {
+    //         HSiPMLow_Channel_all[GetDetectorChannel(signal.Label)]->Fill(signal.Channel);
+    //     }
+
+    //     if (doHigh)
+    //     {
+    //         for (auto &signal : *Tree_SiPMHigh)
+    //         {
+    //             signal.Channel = 1 / SiPMLowHighMatching[signal.Label] * signal.Channel;
+    //             Tree_SiPM_W.push_back(signal);
+
+    //             HSiPMHigh_Channel[GetDetectorChannel(signal.Label)]->Fill(signal.Channel);
+    //             HSiPM_Channel[GetDetectorChannel(signal.Label)]->Fill(signal.Channel);
+    //         }
+    //     }
+    //     else
+    //     {
+    //         for (auto &signal : *Tree_SiPMLow)
+    //         {
+    //             Tree_SiPM_W.push_back(signal);
+    //             HSiPMLow_Channel[GetDetectorChannel(signal.Label)]->Fill(signal.Channel);
+    //             HSiPM_Channel[GetDetectorChannel(signal.Label)]->Fill(signal.Channel);
+    //         }
+    //     }
+    //     Tree_Write->Fill();
+    // }
+
+    // Tree_Write->Write();
+    
+
+    WriteHistograms();
     WriteTime(Cal_File, OutputFile);
     OutputFile->Close();
     Cal_File->Close();

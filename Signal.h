@@ -8,7 +8,7 @@ struct Signal
 {
   int Label;
   double Time;
-  int Channel;
+  double Channel;
   bool isValid;
 
   Signal() : isValid(false) {}

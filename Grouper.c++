@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
     TTree *Tree = (TTree *)Data_File->Get("Tree");
     TTreeReader *Reader = new TTreeReader(Tree);
 
-    TTreeReaderValue<int> Channel(*Reader, "Channel");
+    TTreeReaderValue<double> Channel(*Reader, "Channel");
     TTreeReaderValue<int> Label(*Reader, "Label");
     TTreeReaderValue<double> Time(*Reader, "Time");
 
