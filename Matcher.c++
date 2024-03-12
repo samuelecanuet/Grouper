@@ -30,6 +30,7 @@ int main(int argc, char *argv[])
         RunRef_1234 = 00;
         RunRef_5678 = 00;
     }
+    cout<<"<SAM> Current Run : "<<RunCal<<endl;
     TFile *OutputFile = new TFile(("./Matched/run_0" + to_string(RunCal) + "_32Ar_matched.root").c_str(), "RECREATE");
     TFile *Ref1234_File = new TFile(("./Cleaned/run_0" + to_string(RunRef_1234) + "_32Ar_cleaned.root").c_str(), "READ");
     TFile *Ref5678_File = new TFile(("./Cleaned/run_0" + to_string(RunRef_5678) + "_32Ar_cleaned.root").c_str(), "READ");
@@ -83,7 +84,7 @@ int main(int argc, char *argv[])
             Minimizer *minimizer = Factory::CreateMinimizer("Minuit2", "Migrad");
             ROOT::Math::Functor functor(&Chi2TreeHist, 1);
             minimizer->SetFunction(functor);
-            minimizer->SetLimitedVariable(0, "Proportionality", 1., .05, 0.8, 1.2);
+            minimizer->SetLimitedVariable(0, "Proportionality", 1., .1, 0.8, 1.2);
             minimizer->SetPrecision(0.05);
             minimizer->Minimize();
             const double *bestPar = minimizer->X();
@@ -202,6 +203,16 @@ int main(int argc, char *argv[])
             }
         }
 
+        for (auto &signal : *Tree_SiPMHigh)
+        {
+            HSiPMHigh_Channel_all[GetDetectorChannel(signal.Label)]->Fill(signal.Channel);
+        }
+
+        for (auto &signal : *Tree_SiPMLow)
+        {
+            HSiPMLow_Channel_all[GetDetectorChannel(signal.Label)]->Fill(signal.Channel);
+        }
+
         if (doHigh)
         {
             for (auto &signal : *Tree_SiPMHigh)
@@ -230,82 +241,82 @@ int main(int argc, char *argv[])
     WriteHistograms();
 
 
-    // ////// Matching all SiPMs /////
-    // Ref_Hist = HSiPM_Channel[1];    ///SiPM 1 is the reference
-    // range_low = 0;
-    // range_high = eHighMax;
-    // Tree = (TTree *)OutputFile->Get("Tree_LowHighMatched");
-    // Reader = new TTreeReader(Tree_Write);
-    // for (size_t i = 1; i <= BETA_SIZE; ++i)
-    // {
-    //     graph = new TGraph();
-    //     graph->SetTitle("Gain_Matching;Proportionality; #chi^{2}");
-    //     counter = 0;
+    ////// Matching all SiPMs /////
+    Ref_Hist = HSiPM_Channel[1];    ///SiPM 1 is the reference
+    range_low = 400000;
+    range_high = 1000000;
+    Tree = (TTree *)OutputFile->Get("Tree_LowHighMatched");
+    Reader = new TTreeReader(Tree_Write);
+    for (size_t i = 1; i <= BETA_SIZE; ++i)
+    {
+        graph = new TGraph();
+        graph->SetTitle("Gain_Matching;Proportionality; #chi^{2}");
+        counter = 0;
 
-    //     current_SiPM = i;
+        current_SiPM = i;
 
-    //     //////////////////// MINIMIZER ////////////////////
-    //         ////// First
-    //         Minimizer *minimizer = Factory::CreateMinimizer("Minuit2", "Migrad");
-    //         ROOT::Math::Functor functor(&Chi2SiPM, 1);
-    //         minimizer->SetFunction(functor);
-    //         minimizer->SetLimitedVariable(0, "Proportionality", 1., .05, 0.6, 1.2);
-    //         minimizer->SetPrecision(0.05);
-    //         minimizer->Minimize();
-    //         const double *bestPar = minimizer->X();
+        //////////////////// MINIMIZER ////////////////////
+            ////// First
+            Minimizer *minimizer = Factory::CreateMinimizer("Minuit2", "Migrad");
+            ROOT::Math::Functor functor(&Chi2SiPM, 1);
+            minimizer->SetFunction(functor);
+            minimizer->SetLimitedVariable(0, "Proportionality", 1., .05, 0.6, 1.2);
+            minimizer->SetPrecision(0.05);
+            minimizer->Minimize();
+            const double *bestPar = minimizer->X();
 
-    //         ////// Second
-    //         minimizer->SetLimitedVariable(0, "Proportionality", bestPar[0], .05, 0.6, 1.2);
-    //         minimizer->SetPrecision(1e-5);
-    //         minimizer->Minimize();
-    //         bestPar = minimizer->X();
+            ////// Second
+            minimizer->SetLimitedVariable(0, "Proportionality", bestPar[0], .05, 0.6, 1.2);
+            minimizer->SetPrecision(1e-5);
+            minimizer->Minimize();
+            bestPar = minimizer->X();
 
-    //         ////// Third
-    //         minimizer->SetLimitedVariable(0, "Proportionality", bestPar[0], .005, 0.6, 1.2);
-    //         minimizer->SetPrecision(1e-10);
-    //         minimizer->Minimize();
-    //         bestPar = minimizer->X();
-    //         double error = minimizer->Errors()[0];
-    //         std::cout << "SiPM "+to_string(i) << "\t CHI2 : " << chi2 << "\t Best Proportionality : " << bestPar[0] << " +/- " << error << std::endl;
+            ////// Third
+            minimizer->SetLimitedVariable(0, "Proportionality", bestPar[0], .005, 0.6, 1.2);
+            minimizer->SetPrecision(1e-10);
+            minimizer->Minimize();
+            bestPar = minimizer->X();
+            double error = minimizer->Errors()[0];
+            std::cout << "SiPM "+to_string(i) << "\t CHI2 : " << chi2 << "\t Best Proportionality : " << bestPar[0] << " +/- " << error << std::endl;
 
-    //         //////////////////// SAVE ////////////////////
-    //         TCanvas *c = new TCanvas(("HSiPM_Matched" + to_string(i) + "_Channel").c_str(), ("HSiPM_Matched" + to_string(i) + "_Channel").c_str(), 800, 600);
-    //         c->Divide(1, 3);
-    //         c->cd(1);
-    //         Ref_Hist->Draw("HIST");
+            //////////////////// SAVE ////////////////////
+            TCanvas *c = new TCanvas(("HSiPM_Matched" + to_string(i) + "_Channel").c_str(), ("HSiPM_Matched" + to_string(i) + "_Channel").c_str(), 800, 600);
+            c->Divide(1, 3);
+            c->cd(1);
+            Ref_Hist->Draw("HIST");
 
-    //         Reader->Restart();
-    //         TTreeReaderArray<Signal> *SiPM = new TTreeReaderArray<Signal>(*Reader, "Tree_SiPM");
-    //         TH1I *TreeHist = (TH1I *)Ref_Hist->Clone((detectorName[i] + "_" + to_string(bestPar[0])).c_str());
-    //         TreeHist->Reset();
-    //         while (Reader->Next())
-    //         {
-    //             for (size_t j = 0; j < SiPM->GetSize(); j++)
-    //             {
-    //                 if (current_SiPM == GetDetectorChannel((*SiPM)[j].Label))
-    //                     TreeHist->Fill((*SiPM)[j].Channel * bestPar[0]);
-    //             }
-    //         }
+            Reader->Restart();
+            TTreeReaderArray<Signal> *SiPM = new TTreeReaderArray<Signal>(*Reader, "Tree_SiPM");
+            TH1I *TreeHist = (TH1I *)Ref_Hist->Clone((detectorName[i] + "_" + to_string(bestPar[0])).c_str());
+            TreeHist->Reset();
+            while (Reader->Next())
+            {
+                for (size_t j = 0; j < SiPM->GetSize(); j++)
+                {
+                    if (current_SiPM == GetDetectorChannel((*SiPM)[j].Label))
+                        TreeHist->Fill((*SiPM)[j].Channel * bestPar[0]);
+                }
+            }
 
-    //         TreeHist->SetLineColor(kRed);
-    //         TreeHist->Draw("SAME");
+            TreeHist->SetLineColor(kRed);
+            TreeHist->Draw("SAME");
 
-    //         c->cd(2);
-    //         TH1I *h = (TH1I *)Ref_Hist->Clone("Diff");
-    //         h->Add(TreeHist, -1.0);
-    //         h->Draw("EP");
+            c->cd(2);
+            TH1I *h = (TH1I *)Ref_Hist->Clone("Diff");
+            h->Add(TreeHist, -1.0);
+            h->Draw("EP");
 
 
-    //         c->cd(3);
-    //         graph->Draw("*AP");
-    //         OutputFile->cd();
-    //         c->Write();
+            c->cd(3);
+            graph->Draw("*AP");
+            OutputFile->cd();
+            c->Write();
 
-    //         result_counter++;
-    //         Result->SetPoint(result_counter, i, bestPar[0]);
-    //         detectorMatching[i] = bestPar[0];
-    //         // Result->SetPointError(result_counter, 0, error);
-    // }
+            result_counter++;
+            Result->SetPoint(result_counter, i, bestPar[0]);
+            detectorMatching[i] = bestPar[0];
+            // Result->SetPointError(result_counter, 0, error);
+    }
 
     WriteTime(Cal_File, OutputFile);
     OutputFile->Close();

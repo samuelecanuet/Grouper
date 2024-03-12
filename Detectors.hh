@@ -237,19 +237,15 @@ void WriteTime(TFile* from_File, TFile* to_file)
   TNamed("Stop_time", stop->GetTitle()).Write();
 }
 
-int GetTime(TFile* File)
+pair<string, string> GetTime(TFile* File)
 {
   TObject* start = File->Get("Start_time");
   TObject* stop = File->Get("Stop_time");
 
   string str_start = start->GetTitle();
-  string str_stop = stop->GetTitle();
+  string str_stop = stop->GetTitle(); 
 
-  cout<<str_start<<endl;
-  cout<<str_stop<<endl;
-  
-
-  return 0;
+  return make_pair(str_start, str_stop);
 }
 
 #endif

@@ -58,8 +58,11 @@ TTree* Tree_Write;
 TH1I* HStrip_Channel[SIGNAL_MAX];
 TH1I* HRear_Channel[SIGNAL_MAX];
 TH1I* HSiPMHigh_Channel[BETA_SIZE+1];
+TH1I* HSiPMHigh_Channel_all[BETA_SIZE+1];
 TH1I* HSiPMLow_Channel[BETA_SIZE+1];
+TH1I* HSiPMLow_Channel_all[BETA_SIZE+1];
 TH1I* HSiPM_Channel[BETA_SIZE+1];
+
 
 ////////////////////////////////////
 
@@ -133,7 +136,7 @@ inline double Chi2SiPM(const Double_t *par)
     if (TreeHist->GetEntries() == 0)
         return 0;
 
-    chi2 = Ref_Hist->Chi2Test(TreeHist, "UU CHI2/NDF");
+    chi2 = Ref_Hist->Chi2Test(TreeHist, "WW CHI2/NDF");
     graph->SetPoint(counter, par[0], chi2);
     counter++;
     return chi2;
@@ -169,11 +172,23 @@ inline int InitHistograms()
             HSiPMHigh_Channel[i]->GetXaxis()->CenterTitle();
             HSiPMHigh_Channel[i]->GetYaxis()->CenterTitle();
 
+            HSiPMHigh_Channel_all[i] = new TH1I(("HSiPMHigh_all_" + to_string(i) + "_Channel").c_str(), ("HSiPMHigh_all_" + to_string(i) + "_Channel").c_str(), eLowN/10, eLowMin, eLowMax);
+            HSiPMHigh_Channel_all[i]->GetXaxis()->SetTitle("SiPM [Channel]");
+            HSiPMHigh_Channel_all[i]->GetYaxis()->SetTitle("Counts");
+            HSiPMHigh_Channel_all[i]->GetXaxis()->CenterTitle();
+            HSiPMHigh_Channel_all[i]->GetYaxis()->CenterTitle();
+
             HSiPMLow_Channel[i] = new TH1I(("HSiPMLow_" + to_string(i) + "_Channel").c_str(), ("HSiPMLow_" + to_string(i) + "_Channel").c_str(), eLowN/10, eLowMin, eLowMax);
             HSiPMLow_Channel[i]->GetXaxis()->SetTitle("SiPM [Channel]");
             HSiPMLow_Channel[i]->GetYaxis()->SetTitle("Counts");
             HSiPMLow_Channel[i]->GetXaxis()->CenterTitle();
             HSiPMLow_Channel[i]->GetYaxis()->CenterTitle();
+
+            HSiPMLow_Channel_all[i] = new TH1I(("HSiPMLow_all_" + to_string(i) + "_Channel").c_str(), ("HSiPMLow_all_" + to_string(i) + "_Channel").c_str(), eLowN/10, eLowMin, eLowMax);
+            HSiPMLow_Channel_all[i]->GetXaxis()->SetTitle("SiPM [Channel]");
+            HSiPMLow_Channel_all[i]->GetYaxis()->SetTitle("Counts");
+            HSiPMLow_Channel_all[i]->GetXaxis()->CenterTitle();
+            HSiPMLow_Channel_all[i]->GetYaxis()->CenterTitle();
 
             HSiPM_Channel[i] = new TH1I(("HSiPM_" + to_string(i) + "_Channel").c_str(), ("HSiPM_" + to_string(i) + "_Channel").c_str(), eLowN/10, eLowMin, eLowMax);
             HSiPM_Channel[i]->GetXaxis()->SetTitle("SiPM [Channel]");
@@ -212,6 +227,28 @@ inline int WriteHistograms()
         HSiPM_Channel[i]->Draw("SAME");
         c->Write();
         delete c;
+
+        TCanvas *c1 = new TCanvas(("HSiPMHigh_1vs" + to_string(i)).c_str(), ("HSiPMHigh_1vs" + to_string(i)).c_str(), 800, 600);
+        c1->cd();
+        HSiPMHigh_Channel_all[i]->SetLineColor(kBlue);
+        HSiPMHigh_Channel_all[i]->Draw("HIST");
+        HSiPMHigh_Channel_all[1]->SetLineColor(kBlack);
+        HSiPMHigh_Channel_all[1]->Draw("SAME");
+        HSiPMHigh_Channel_all[i]->SetTitle(("HSiPMHigh_1vs" + to_string(i)).c_str());
+        HSiPMHigh_Channel_all[1]->SetTitle(("HSiPMHigh_1vs" + to_string(i)).c_str());
+        c1->Write();
+        delete c1;
+
+        TCanvas *c2 = new TCanvas(("HSiPMLow_1vs" + to_string(i)).c_str(), ("HSiPMLow_1vs" + to_string(i)).c_str(), 800, 600);
+        c2->cd();
+        HSiPMLow_Channel_all[i]->SetLineColor(kBlue);
+        HSiPMLow_Channel_all[i]->Draw("HIST");
+        HSiPMLow_Channel_all[1]->SetLineColor(kBlack);
+        HSiPMLow_Channel_all[1]->Draw("SAME");
+        HSiPMLow_Channel_all[i]->SetTitle(("HSiPMLow_1vs" + to_string(i)).c_str());
+        HSiPMLow_Channel_all[1]->SetTitle(("HSiPMLow_1vs" + to_string(i)).c_str());
+        c2->Write();
+        delete c2;
 
     }
     return 0;
