@@ -1,15 +1,17 @@
-for i in {11..16}
-do
-   if [ $i -ne 35 ]
-   then
-      Matcher $i
-   fi
-done
+prog=Matcher
 
-for i in {25..40}
+# for i in {11..18}
+# do
+#    if [ $i -ne 35 ]
+#    then
+#       $prog $i
+#    fi
+# done
+
+for i in {31..40}
 do
    if [ $i -ne 35 ]
    then
-      Matcher $i
+      $prog $i
    fi
 done

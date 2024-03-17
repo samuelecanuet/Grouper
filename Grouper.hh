@@ -9,7 +9,7 @@
 #include "TFile.h"
 #include "TF1.h"
 #include "TH1F.h"
-#include "TH2I.h"
+#include "TH2D.h"
 #include "TTree.h"
 #include "TProfile.h"
 #include "TGraph.h"
@@ -58,20 +58,20 @@ double Tree_Channel;
 /// Silicon
 TH1D *HStrip_Channel_G[SIGNAL_MAX];
 TH1D *HStripRear_Time_G[SIGNAL_MAX];
-TH2I *HStripRear_Channel_G[SIGNAL_MAX];
+TH2D *HStripRear_Channel_G[SIGNAL_MAX];
 TH1D *HFracRearStripChannel_G[SIGNAL_MAX];
-
-TH2I *HStripsMultiplicity_G[SIGNAL_MAX];
+TH2D *HSiPMRearHigh_TimeChannel_G[SIGNAL_MAX];
+TH2D *HStripsMultiplicity_G[SIGNAL_MAX];
 
 /// SiPM High
 TH1D *HSiPMHigh_Channel_G[SIGNAL_MAX];
 TH1D *HSiPMHighRear_Time_G[SIGNAL_MAX];
-TH2I *HSiPMHighRear_TimeChannel_G[SIGNAL_MAX];
+TH2D *HSiPMHighRear_TimeChannel_G[SIGNAL_MAX];
 
 /// SiPM Low
 TH1D *HSiPMLow_Channel_G[SIGNAL_MAX];
 TH1D *HSiPMLowRear_Time_G[SIGNAL_MAX];
-TH2I *HSiPMLowRear_TimeChannel_G[SIGNAL_MAX];
+TH2D *HSiPMLowRear_TimeChannel_G[SIGNAL_MAX];
 
 /// SIPMs
 TH1D *HSiPMHigh_False_G;
@@ -90,32 +90,32 @@ TH1D *HSiPM_Counter_False_G;
 
 TH1D *HSiPMHigh_Multiplicity_G;
 TH1D *HSiPMLow_Multiplicity_G;
-TH2I *HSiPM_Multiplicities_G;
+TH2D *HSiPM_Multiplicities_G;
 /////////////////////////////////////
 //////////////CLEANED////////////////
 /// Silicon
 TH1D *HStrip_Channel_C[SIGNAL_MAX];
 TH1D *HRear_Channel_C[SIGNAL_MAX];
 TH1D *HStripRear_Time_C[SIGNAL_MAX];
-TH2I *HStripRear_Channel_C[SIGNAL_MAX];
+TH2D *HStripRear_Channel_C[SIGNAL_MAX];
 TH1D *HFracRearStripChannel_C[SIGNAL_MAX];
 
-TH2I *HStripsMultiplicity_C[SIGNAL_MAX];
+TH2D *HStripsMultiplicity_C[SIGNAL_MAX];
 
 /// SiPM High
 TH1D *HSiPMHigh_Channel_C[SIGNAL_MAX];
 TH1D *HSiPMHighRear_Time_C[SIGNAL_MAX];
-TH2I *HSiPMHighRear_TimeChannel_C[SIGNAL_MAX];
+TH2D *HSiPMHighRear_TimeChannel_C[SIGNAL_MAX];
 
 /// SiPM Low
 TH1D *HSiPMLow_Channel_C[SIGNAL_MAX];
 TH1D *HSiPMLowRear_Time_C[SIGNAL_MAX];
-TH2I *HSiPMLowRear_TimeChannel_C[SIGNAL_MAX];
+TH2D *HSiPMLowRear_TimeChannel_C[SIGNAL_MAX];
 
 /// SIPMs
 TH1D *HSiPMHigh_Multiplicity_C;
 TH1D *HSiPMLow_Multiplicity_C;
-TH2I *HSiPM_Multiplicities_C;
+TH2D *HSiPM_Multiplicities_C;
 
 TTree *Tree_Silicons[SIGNAL_MAX];
 
@@ -130,6 +130,7 @@ inline int InitHistograms_Grouped()
     HStripRear_Channel_G[i] = NULL;
     HFracRearStripChannel_G[i] = NULL;
     HStripsMultiplicity_G[i] = NULL;
+    HSiPMRearHigh_TimeChannel_G[i] = NULL;
     HSiPMHigh_Channel_G[i] = NULL;
     HSiPMHigh_Multiplicity_G = NULL;
     HSiPMHighRear_Time_G[i] = NULL;
@@ -169,7 +170,7 @@ inline int InitHistograms_Grouped()
       HStripRear_Time_G[i]->GetXaxis()->CenterTitle();
       HStripRear_Time_G[i]->GetYaxis()->CenterTitle();
 
-      HStripRear_Channel_G[i] = new TH2I(("HStripRear_Channel_G_" + detectorName[i]).c_str(), ("HStripRear_Channel_G_" + detectorName[i]).c_str(), eSiliN / 10, eSiliMin, eSiliMax, eSiliN / 10, eSiliMin, eSiliMax);
+      HStripRear_Channel_G[i] = new TH2D(("HStripRear_Channel_G_" + detectorName[i]).c_str(), ("HStripRear_Channel_G_" + detectorName[i]).c_str(), eSiliN / 10, eSiliMin, eSiliMax, eSiliN / 10, eSiliMin, eSiliMax);
       HStripRear_Channel_G[i]->GetXaxis()->SetTitle("Rear [Channel]");
       HStripRear_Channel_G[i]->GetYaxis()->SetTitle("Strip [Channel]");
       HStripRear_Channel_G[i]->GetXaxis()->CenterTitle();
@@ -181,11 +182,18 @@ inline int InitHistograms_Grouped()
       HFracRearStripChannel_G[i]->GetYaxis()->SetTitle("Counts");
       HFracRearStripChannel_G[i]->GetXaxis()->CenterTitle();
       HFracRearStripChannel_G[i]->GetYaxis()->CenterTitle();
+
+      HSiPMRearHigh_TimeChannel_G[i] = new TH2D(("HSiPMRearHigh_TimeChannel_G_" + detectorName[i]).c_str(), ("HSiPMRearHigh_TimeChannel_G_" + detectorName[i]).c_str(), winHighN, -winHighMax, -winHighMin, eSiliN / 100, eSiliMin, eSiliMax);
+      HSiPMRearHigh_TimeChannel_G[i]->GetXaxis()->SetTitle("Time [ns]");
+      HSiPMRearHigh_TimeChannel_G[i]->GetYaxis()->SetTitle("Strip [Channel]");
+      HSiPMRearHigh_TimeChannel_G[i]->GetXaxis()->CenterTitle();
+      HSiPMRearHigh_TimeChannel_G[i]->GetYaxis()->CenterTitle();
+      HSiPMRearHigh_TimeChannel_G[i]->SetDrawOption("COLZ");
     }
 
     if (IsDetectorSiliBack(i))
     {
-      HStripsMultiplicity_G[i] = new TH2I(("HStripsMultiplicity_G_" + detectorName[i]).c_str(), ("HStripsMultiplicity_G_" + detectorName[i]).c_str(), 6, 0, 6, 6, 0, 6);
+      HStripsMultiplicity_G[i] = new TH2D(("HStripsMultiplicity_G_" + detectorName[i]).c_str(), ("HStripsMultiplicity_G_" + detectorName[i]).c_str(), 6, 0, 6, 6, 0, 6);
       HStripsMultiplicity_G[i]->GetXaxis()->SetTitle("Strip A");
       HStripsMultiplicity_G[i]->GetYaxis()->SetTitle("Strip B");
       HStripsMultiplicity_G[i]->GetXaxis()->CenterTitle();
@@ -207,7 +215,7 @@ inline int InitHistograms_Grouped()
       HSiPMHighRear_Time_G[i]->GetXaxis()->CenterTitle();
       HSiPMHighRear_Time_G[i]->GetYaxis()->CenterTitle();
 
-      HSiPMHighRear_TimeChannel_G[i] = new TH2I(("HSiPMHighRear_TimeChannel_G_" + detectorName[i]).c_str(), ("HSiPMHighRear_TimeChannel_G_" + detectorName[i]).c_str(), winHighN, winHighMin, winHighMax, eHighN, eHighMin, eHighMax);
+      HSiPMHighRear_TimeChannel_G[i] = new TH2D(("HSiPMHighRear_TimeChannel_G_" + detectorName[i]).c_str(), ("HSiPMHighRear_TimeChannel_G_" + detectorName[i]).c_str(), winHighN, winHighMin, winHighMax, eHighN, eHighMin, eHighMax);
       HSiPMHighRear_TimeChannel_G[i]->GetXaxis()->SetTitle("Time [ns]");
       HSiPMHighRear_TimeChannel_G[i]->GetYaxis()->SetTitle("SiPM High [Channel]");
       HSiPMHighRear_TimeChannel_G[i]->GetXaxis()->CenterTitle();
@@ -229,7 +237,7 @@ inline int InitHistograms_Grouped()
       HSiPMLowRear_Time_G[i]->GetXaxis()->CenterTitle();
       HSiPMLowRear_Time_G[i]->GetYaxis()->CenterTitle();
 
-      HSiPMLowRear_TimeChannel_G[i] = new TH2I(("HSiPMLowRear_TimeChannel_G_" + detectorName[i]).c_str(), ("HSiPMLowRear_TimeChannel_G_" + detectorName[i]).c_str(), winLowN, winLowMin, winLowMax, eLowN, eLowMin, eLowMax);
+      HSiPMLowRear_TimeChannel_G[i] = new TH2D(("HSiPMLowRear_TimeChannel_G_" + detectorName[i]).c_str(), ("HSiPMLowRear_TimeChannel_G_" + detectorName[i]).c_str(), winLowN, winLowMin, winLowMax, eLowN, eLowMin, eLowMax);
       HSiPMLowRear_TimeChannel_G[i]->GetXaxis()->SetTitle("Time [ns]");
       HSiPMLowRear_TimeChannel_G[i]->GetYaxis()->SetTitle("SiPM Low [Channel]");
       HSiPMLowRear_TimeChannel_G[i]->GetXaxis()->CenterTitle();
@@ -262,7 +270,7 @@ inline int InitHistograms_Grouped()
   HSiPMLow_Multiplicity_G->GetXaxis()->CenterTitle();
   HSiPMLow_Multiplicity_G->GetYaxis()->CenterTitle();
 
-  HSiPM_Multiplicities_G = new TH2I(("HSiPM_Multiplicities_G"), ("HSiPM_Multiplicities_G"), 10, 0, 10, 10, 0, 10);
+  HSiPM_Multiplicities_G = new TH2D(("HSiPM_Multiplicities_G"), ("HSiPM_Multiplicities_G"), 10, 0, 10, 10, 0, 10);
   HSiPM_Multiplicities_G->GetXaxis()->SetTitle("Multiplicity High");
   HSiPM_Multiplicities_G->GetYaxis()->SetTitle("Multiplicity Low");
   HSiPM_Multiplicities_G->GetXaxis()->CenterTitle();
@@ -351,7 +359,7 @@ inline int InitHistograms_Cleaned()
       HStripRear_Time_C[i]->GetXaxis()->CenterTitle();
       HStripRear_Time_C[i]->GetYaxis()->CenterTitle();
 
-      HStripRear_Channel_C[i] = new TH2I(("HStripRear_Channel_C_" + detectorName[i]).c_str(), ("HStripRear_Channel_C_" + detectorName[i]).c_str(), eSiliN / 10, eSiliMin, eSiliMax, eSiliN / 10, eSiliMin, eSiliMax);
+      HStripRear_Channel_C[i] = new TH2D(("HStripRear_Channel_C_" + detectorName[i]).c_str(), ("HStripRear_Channel_C_" + detectorName[i]).c_str(), eSiliN / 10, eSiliMin, eSiliMax, eSiliN / 10, eSiliMin, eSiliMax);
       HStripRear_Channel_C[i]->GetXaxis()->SetTitle("Rear [Channel]");
       HStripRear_Channel_C[i]->GetYaxis()->SetTitle("Strip [Channel]");
       HStripRear_Channel_C[i]->GetXaxis()->CenterTitle();
@@ -367,7 +375,7 @@ inline int InitHistograms_Cleaned()
 
     if (IsDetectorSiliBack(i))
     {
-      HStripsMultiplicity_C[i] = new TH2I(("HStripsMultiplicity_C_" + detectorName[i]).c_str(), ("HStripsMultiplicity_C_" + detectorName[i]).c_str(), 6, 0, 6, 6, 0, 6);
+      HStripsMultiplicity_C[i] = new TH2D(("HStripsMultiplicity_C_" + detectorName[i]).c_str(), ("HStripsMultiplicity_C_" + detectorName[i]).c_str(), 6, 0, 6, 6, 0, 6);
       HStripsMultiplicity_C[i]->GetXaxis()->SetTitle("Strip A");
       HStripsMultiplicity_C[i]->GetYaxis()->SetTitle("Strip B");
       HStripsMultiplicity_C[i]->GetXaxis()->CenterTitle();
@@ -395,7 +403,7 @@ inline int InitHistograms_Cleaned()
       HSiPMHighRear_Time_C[i]->GetXaxis()->CenterTitle();
       HSiPMHighRear_Time_C[i]->GetYaxis()->CenterTitle();
 
-      HSiPMHighRear_TimeChannel_C[i] = new TH2I(("HSiPMHighRear_TimeChannel_C_" + detectorName[i]).c_str(), ("HSiPMHighRear_TimeChannel_C_" + detectorName[i]).c_str(), winHighN, winHighMin, winHighMax, eHighN, eHighMin, eHighMax);
+      HSiPMHighRear_TimeChannel_C[i] = new TH2D(("HSiPMHighRear_TimeChannel_C_" + detectorName[i]).c_str(), ("HSiPMHighRear_TimeChannel_C_" + detectorName[i]).c_str(), winHighN, winHighMin, winHighMax, eHighN, eHighMin, eHighMax);
       HSiPMHighRear_TimeChannel_C[i]->GetXaxis()->SetTitle("Time [ns]");
       HSiPMHighRear_TimeChannel_C[i]->GetYaxis()->SetTitle("SiPM High [Channel]");
       HSiPMHighRear_TimeChannel_C[i]->GetXaxis()->CenterTitle();
@@ -417,7 +425,7 @@ inline int InitHistograms_Cleaned()
       HSiPMLowRear_Time_C[i]->GetXaxis()->CenterTitle();
       HSiPMLowRear_Time_C[i]->GetYaxis()->CenterTitle();
 
-      HSiPMLowRear_TimeChannel_C[i] = new TH2I(("HSiPMLowRear_TimeChannel_C_" + detectorName[i]).c_str(), ("HSiPMLowRear_TimeChannel_C_" + detectorName[i]).c_str(), winLowN, winLowMin, winLowMax, eLowN, eLowMin, eLowMax);
+      HSiPMLowRear_TimeChannel_C[i] = new TH2D(("HSiPMLowRear_TimeChannel_C_" + detectorName[i]).c_str(), ("HSiPMLowRear_TimeChannel_C_" + detectorName[i]).c_str(), winLowN, winLowMin, winLowMax, eLowN, eLowMin, eLowMax);
       HSiPMLowRear_TimeChannel_C[i]->GetXaxis()->SetTitle("Time [ns]");
       HSiPMLowRear_TimeChannel_C[i]->GetYaxis()->SetTitle("SiPM Low [Channel]");
       HSiPMLowRear_TimeChannel_C[i]->GetXaxis()->CenterTitle();
@@ -437,7 +445,7 @@ inline int InitHistograms_Cleaned()
   HSiPMLow_Multiplicity_C->GetXaxis()->CenterTitle();
   HSiPMLow_Multiplicity_C->GetYaxis()->CenterTitle();
 
-  HSiPM_Multiplicities_C = new TH2I(("HSiPM_Multiplicities_C"), ("HSiPM_Multiplicities_C"), 10, 0, 10, 10, 0, 10);
+  HSiPM_Multiplicities_C = new TH2D(("HSiPM_Multiplicities_C"), ("HSiPM_Multiplicities_C"), 10, 0, 10, 10, 0, 10);
   HSiPM_Multiplicities_C->GetXaxis()->SetTitle("Multiplicity High");
   HSiPM_Multiplicities_C->GetYaxis()->SetTitle("Multiplicity Low");
   HSiPM_Multiplicities_C->GetXaxis()->CenterTitle();
@@ -481,6 +489,7 @@ inline int WriteHistograms_Grouped()
   File_Grouped->cd();
   TDirectory *Strip_Channel_G = File_Grouped->mkdir("Strip_Channel");
   TDirectory *Strip_Time_G = File_Grouped->mkdir("Strip_Time");
+  TDirectory *Strip_Channel_Time = File_Grouped->mkdir("Strip_Channel_Time");
   TDirectory *Rear_Strip_Channel_G = File_Grouped->mkdir("Rear_Strip_Channel");
   TDirectory *fracRear_Strip_Channel_G = File_Grouped->mkdir("Frac_Rear_Strip_Channel");
   TDirectory *Strip_Multiplicities_G = File_Grouped->mkdir("Strip_Multiplicities");
@@ -513,6 +522,8 @@ inline int WriteHistograms_Grouped()
       fracRear_Strip_Channel_G->cd();
       HFracRearStripChannel_G[i]->Write();
       delete HFracRearStripChannel_G[i];
+      Strip_Channel_Time->cd();
+      HSiPMRearHigh_TimeChannel_G[i]->Write();
     }
 
     if (IsDetectorSiliBack(i))
@@ -755,6 +766,9 @@ void SavingData_Grouped(vector<Signal> SiliconRear, vector<Signal> SiPM_High, ve
     HStripRear_Time_G[Silicon.Label]->Fill(Silicon.Time - TrigSignal.Time);
     HStripRear_Channel_G[Silicon.Label]->Fill(TrigSignal.Channel, Silicon.Channel);
     HFracRearStripChannel_G[Silicon.Label]->Fill(static_cast<double>(Silicon.Channel) / TrigSignal.Channel);
+
+    if (SiPM_High.size() > 0)
+      HSiPMRearHigh_TimeChannel_G[Silicon.Label]->Fill(TrigSignal.Time - SiPM_High[0].Time, Silicon.Channel);
 
     for (auto it = SiPM_High.begin(); it != SiPM_High.end(); ++it)
     {

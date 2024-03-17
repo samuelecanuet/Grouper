@@ -56,6 +56,7 @@ double SiPMsMatching[SIGNAL_MAX];
 
 TTree* Tree_Read;
 TTree* Tree_Write; 
+TTree* Tree_Final;
 
 TH1D* HStrip_Channel[SIGNAL_MAX];
 TH1D* HRear_Channel[SIGNAL_MAX];
@@ -64,6 +65,10 @@ TH1D* HSiPMHigh_Channel_all[BETA_SIZE+1];
 TH1D* HSiPMLow_Channel[BETA_SIZE+1];
 TH1D* HSiPMLow_Channel_all[BETA_SIZE+1];
 TH1D* HSiPM_Channel[BETA_SIZE+1];
+TH1D* HSiPM;
+
+TDirectory *dir_Chi2SiPMLowHigh;
+TDirectory *dir_Chi2SiPMs;
 
 
 ////////////////////////////////////
@@ -146,6 +151,7 @@ inline double Chi2SiPM(const Double_t *par)
 
 inline int InitHistograms()
 {
+    
     for (size_t i = 0; i < detectorNum; ++i)
     {
         if (IsDetectorSiliStrip(i))
@@ -200,6 +206,13 @@ inline int InitHistograms()
 
 
     }
+
+    HSiPM = new TH1D("HSiPM", "HSiPM", eLowN/5, eLowMin, eLowMax*5);
+    HSiPM->GetXaxis()->SetTitle("SiPM [Channel]");
+    HSiPM->GetYaxis()->SetTitle("Counts");
+    HSiPM->GetXaxis()->CenterTitle();
+    HSiPM->GetYaxis()->CenterTitle();
+
     return 0;
 }
 
@@ -219,6 +232,7 @@ inline int WriteHistograms()
 
     for (int i = 1; i <= BETA_SIZE; i++)
     {
+        dir_Chi2SiPMLowHigh->cd();
         TCanvas *c = new TCanvas(("HSiPM_Merged" + to_string(i) + "_Channel").c_str(), ("HSiPM_" + to_string(i) + "_Channel").c_str(), 800, 600);
         c->cd();
         HSiPMHigh_Channel[i]->SetLineColor(kRed);
@@ -230,6 +244,7 @@ inline int WriteHistograms()
         c->Write();
         delete c;
 
+        dir_Chi2SiPMs->cd();
         TCanvas *c1 = new TCanvas(("HSiPMHigh_1vs" + to_string(i)).c_str(), ("HSiPMHigh_1vs" + to_string(i)).c_str(), 800, 600);
         c1->cd();
         HSiPMHigh_Channel_all[i]->SetLineColor(kBlue);
@@ -251,7 +266,8 @@ inline int WriteHistograms()
         HSiPMLow_Channel_all[1]->SetTitle(("HSiPMLow_1vs" + to_string(i)).c_str());
         c2->Write();
         delete c2;
-
     }
+
+    HSiPM->Write();
     return 0;
 }
