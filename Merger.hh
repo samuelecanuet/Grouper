@@ -1,3 +1,6 @@
+#ifndef MERGER_HH
+#define MERGER_HH
+
 #include <iostream>
 #include <sstream>
 #include <vector>
@@ -6,6 +9,7 @@
 #include <ctime>
 #include <cstdlib>
 #include <algorithm>
+#include <random>
 #include <boost/filesystem.hpp>
 
 #include "TFile.h"
@@ -25,21 +29,31 @@
 #include "TTreeReaderArray.h"
 #include "TRandom.h"
 
+#include "TMinuit.h"
+#include "Math/Minimizer.h"
+#include "Math/Functor.h"
+#include "Math/Factory.h"
+
+
 #include "Signal.h"
 #include "Detectors.hh"
 #include "/home/local1/Documents/lib/GTools1.0/include/GString.hh"
 
 using namespace std;
 namespace fs = boost::filesystem;
+using namespace ROOT::Math;
+random_device rd;
+mt19937 gen(rd());
 
 map<string, vector<string>> fileMap;
 string Catcher;
 vector<int> RunNumbers;
 vector<int> runs;
 string baseFileName;
-pair<double, double> detectorCalib[100][SIGNAL_MAX] = {{make_pair(0., 0.)}};
-double detectorCalib_Fermi[SIGNAL_MAX];
-double detectorCalib_GT[SIGNAL_MAX];
+pair<double, double> SiliconCalib[100][SIGNAL_MAX] = {{make_pair(0., 0.)}};
+double SiliconCalib_Fermi[SIGNAL_MAX];
+double SiliconCalib_GT[SIGNAL_MAX];
+pair<double, double> SiPMCalib[100] = {{make_pair(0., 0.)}};
 double detectorMatching[SIGNAL_MAX];
 pair<int, int> peaks_window_F[SIGNAL_MAX];
 pair<int, int> peaks_window_GT[SIGNAL_MAX];
@@ -73,6 +87,11 @@ TH2D *HSiliconRun_Channel_Matched[SIGNAL_MAX];
 TH2D *HSiliconRun[SIGNAL_MAX];
 TH2D *HSiPMRun_Channel_Unmatched;
 
+TH1D *Ref_Hist;
+TTree *SiPM_Runs_Tree;
+TGraph* graph;
+TTreeReader *Reader_calib_sipm;
+double chi2;
 TF1 *linear = new TF1("linear", "[0]*x");
 
 int Verbose = 0;
@@ -140,6 +159,24 @@ double GetOnlyHour(string refstring)
   double diffInHours = referenceDate.tm_hour + referenceDate.tm_min / 60.0 + referenceDate.tm_sec / 3600.0;
 
   return diffInHours;
+}
+
+bool Is_F(double E, int label)
+{
+  if (E < 1/SiliconCalib[99][label].first * peaks_window_F[label].first && E < 1/SiliconCalib[99][label].first * peaks_window_F[label].second)
+  {
+    return true;
+  }
+  return false;
+}
+
+bool Is_GT(double E, int label)
+{
+  if (E > 1900 && E < 2200)
+  {
+    return true;
+  }
+  return false;
 }
 
 void InitHistograms()
@@ -260,6 +297,7 @@ void WriteHistograms()
   TDirectory *dir_HSilicon = Merged_File->mkdir("Silicon_Calibrated");
   TDirectory *dir_HSilicon__Fitting = dir_HSilicon->mkdir("Fitting");
   TDirectory *dir_HSilicon__Run = dir_HSilicon->mkdir("Run_Time");
+  TDirectory *dir_HSilicon__Hist = dir_HSilicon->mkdir("Hist");
   TDirectory *dir_HSiPM = Merged_File->mkdir("SiPM");
 
   double first_time = GetOnlyHour(file_string_Time[0].first);
@@ -295,7 +333,7 @@ void WriteHistograms()
       dir_HSilicon_Channel_Matched->cd();
       HSilicon_Channel_Matched[i]->Write();
 
-      dir_HSilicon_Channel_Matched->cd();
+      dir_HSilicon_Channel_Matched__Run->cd();
       TCanvas *c1 = new TCanvas(("RunsTime_Matched" + detectorName[i]).c_str(), ("RunsTime_Matched" + detectorName[i]).c_str(), 800, 600);
       c1->cd();
       TAxis *xaxis_matched = HSiliconRun_Channel_Matched[i]->GetXaxis();
@@ -316,9 +354,10 @@ void WriteHistograms()
       delete c1;
 
       ////////////////CALIBRATED
-      dir_HSilicon__Run->cd();
-      HSilicon[i]->Write();
+      dir_HSilicon->cd();
+      // HSilicon[i]->Write();
 
+      dir_HSilicon__Run->cd();
       TCanvas *c0 = new TCanvas(("RunsTime_Calibrated" + detectorName[i]).c_str(), ("RunsTime_Calibrated" + detectorName[i]).c_str(), 800, 600);
       c0->cd();
       TAxis *xaxis_calibrated = HSiliconRun[i]->GetXaxis();
@@ -338,7 +377,7 @@ void WriteHistograms()
       c0->Write();
       delete c0;
 
-      dir_HSilicon->cd();
+      dir_HSilicon__Hist->cd();
       TCanvas *c = new TCanvas((detectorName[i]).c_str(), (detectorName[i]).c_str(), 800, 600);
       c->cd();
       HSilicon[i]->SetLineColor(kBlack);
@@ -363,25 +402,25 @@ void WriteHistograms()
       int counter = 0;
       for (int run = 0; run < 99; run++)
       {
-        if (detectorCalib[run][i].first != 0.)
+        if (SiliconCalib[run][i].first != 0.)
         {
-          graph1->SetPoint(counter, run, detectorCalib[run][i].first);
-          graph1->SetPointError(counter, 0, detectorCalib[run][i].second);
+          graph1->SetPoint(counter, run, SiliconCalib[run][i].first);
+          graph1->SetPointError(counter, 0, SiliconCalib[run][i].second);
           counter++;
         }
       }
       graph1->Draw("*AP");
 
-      TLine *line = new TLine(graph1->GetPointX(0), detectorCalib[99][i].first, graph1->GetPointX(graph1->GetN()-1), detectorCalib[99][i].first);
+      TLine *line = new TLine(graph1->GetPointX(0), SiliconCalib[99][i].first, graph1->GetPointX(graph1->GetN() - 1), SiliconCalib[99][i].first);
       line->SetLineColor(kRed);
       line->SetLineWidth(2);
       line->Draw();
 
       TGraphErrors *graph2 = new TGraphErrors();
-      graph2->SetPoint(0, graph1->GetPointX(0), detectorCalib[99][i].first-detectorCalib[99][i].second);
-      graph2->SetPoint(1, graph1->GetPointX(graph1->GetN()-1), detectorCalib[99][i].first-detectorCalib[99][i].second);
-      graph2->SetPoint(2, graph1->GetPointX(graph1->GetN()-1), detectorCalib[99][i].first+detectorCalib[99][i].second);
-      graph2->SetPoint(3, graph1->GetPointX(0), detectorCalib[99][i].first+detectorCalib[99][i].second);
+      graph2->SetPoint(0, graph1->GetPointX(0), SiliconCalib[99][i].first - SiliconCalib[99][i].second);
+      graph2->SetPoint(1, graph1->GetPointX(graph1->GetN() - 1), SiliconCalib[99][i].first - SiliconCalib[99][i].second);
+      graph2->SetPoint(2, graph1->GetPointX(graph1->GetN() - 1), SiliconCalib[99][i].first + SiliconCalib[99][i].second);
+      graph2->SetPoint(3, graph1->GetPointX(0), SiliconCalib[99][i].first + SiliconCalib[99][i].second);
       graph2->SetFillColor(kRed);
       graph2->SetFillStyle(3005);
       graph2->Draw("F");
@@ -413,15 +452,15 @@ void WriteHistograms()
     if (hourmodulo % 2 == 0)
       xaxis_sipm->SetBinLabel(bin, to_string(hourmodulo).c_str());
 
-    TH1D *proj = HSiPMRun_Channel_Unmatched->ProjectionY("proj", bin, bin);
-    double integral = proj->Integral();
-    if (integral != 0)
-    {
-      for (int j = 1; j <= HSiPMRun_Channel_Unmatched->GetNbinsY(); j++)
-      {
-        HSiPMRun_Channel_Unmatched->SetBinContent(bin, j, HSiPMRun_Channel_Unmatched->GetBinContent(bin, j) / integral);
-      }
-    }
+    // TH1D *proj = HSiPMRun_Channel_Unmatched->ProjectionY("proj", bin, bin);
+    // double integral = proj->Integral();
+    // if (integral != 0)
+    // {
+    //   for (int j = 1; j <= HSiPMRun_Channel_Unmatched->GetNbinsY(); j++)
+    //   {
+    //     HSiPMRun_Channel_Unmatched->SetBinContent(bin, j, HSiPMRun_Channel_Unmatched->GetBinContent(bin, j) / integral);
+    //   }
+    // }
   }
 
   HSiPMRun_Channel_Unmatched->GetXaxis()->LabelsOption("h");
@@ -461,7 +500,7 @@ void InitMatching()
   }
 }
 
-int MakeCalibration()
+void MakeSiliconCalibration()
 {
   for (int i = 0; i < SIGNAL_MAX; i++)
   {
@@ -469,21 +508,21 @@ int MakeCalibration()
     {
       TGraphErrors *graph = new TGraphErrors();
       HSilicon_Channel_Matched[i]->GetXaxis()->SetRangeUser(peaks_window_F[i].first, peaks_window_F[i].second);
-      graph->SetPoint(0, detectorCalib_Fermi[i], HSilicon_Channel_Matched[i]->GetMean());
+      graph->SetPoint(0, SiliconCalib_Fermi[i], HSilicon_Channel_Matched[i]->GetMean());
       graph->SetPointError(0, 0, HSilicon_Channel_Matched[i]->GetMeanError());
 
       HSilicon_Channel_Matched[i]->GetXaxis()->SetRangeUser(peaks_window_GT[i].first, peaks_window_GT[i].second);
-      graph->SetPoint(0, detectorCalib_GT[i], HSilicon_Channel_Matched[i]->GetMean());
+      graph->SetPoint(0, SiliconCalib_GT[i], HSilicon_Channel_Matched[i]->GetMean());
       graph->SetPointError(0, 0, HSilicon_Channel_Matched[i]->GetMeanError());
 
       linear->SetParameters(0, 12);
       graph->Fit("linear", "Q");
 
-      detectorCalib[99][i] = make_pair(linear->GetParameter(0), linear->GetParError(0));
+      SiliconCalib[99][i] = make_pair(linear->GetParameter(0), linear->GetParError(0));
     }
   }
 }
-int MakeCalibration(int run)
+void MakeSiliconCalibration(int run)
 {
   for (int i = 0; i < SIGNAL_MAX; i++)
   {
@@ -491,26 +530,114 @@ int MakeCalibration(int run)
     {
       TGraphErrors *graph = new TGraphErrors();
       HSilicon_Channel_Matched_CURRENTRUN[i]->GetXaxis()->SetRangeUser(peaks_window_F[i].first, peaks_window_F[i].second);
-      graph->SetPoint(0, detectorCalib_Fermi[i], HSilicon_Channel_Matched_CURRENTRUN[i]->GetMean());
+      graph->SetPoint(0, SiliconCalib_Fermi[i], HSilicon_Channel_Matched_CURRENTRUN[i]->GetMean());
       graph->SetPointError(0, 0, HSilicon_Channel_Matched_CURRENTRUN[i]->GetMeanError());
 
       HSilicon_Channel_Matched_CURRENTRUN[i]->GetXaxis()->SetRangeUser(peaks_window_GT[i].first, peaks_window_GT[i].second);
-      graph->SetPoint(0, detectorCalib_GT[i], HSilicon_Channel_Matched_CURRENTRUN[i]->GetMean());
+      graph->SetPoint(0, SiliconCalib_GT[i], HSilicon_Channel_Matched_CURRENTRUN[i]->GetMean());
       graph->SetPointError(0, 0, HSilicon_Channel_Matched_CURRENTRUN[i]->GetMeanError());
 
       linear->SetParameters(0, 12);
       graph->Fit("linear", "Q");
 
-      detectorCalib[run][i] = make_pair(linear->GetParameter(0), linear->GetParError(0));
+      SiliconCalib[run][i] = make_pair(linear->GetParameter(0), linear->GetParError(0));
 
       HSilicon_Channel_Matched_CURRENTRUN[i]->Reset();
     }
   }
 }
 
+inline double Chi2TreeHist(const Double_t *par)
+{
+    chi2 = 0;
+    Reader_calib_sipm->Restart();
+    TTreeReaderArray<double> Tree_SiPM(*Reader_calib_sipm, "PlasticScintillator_Deposit_Energy");
+    TH1D *TreeHist = (TH1D *)Ref_Hist->Clone(("SiPM_" + to_string(par[0])).c_str());
+    TreeHist->Reset();
+    
+
+    while (Reader_calib_sipm->Next())
+    {
+      normal_distribution<> resolution(0, par[1]*sqrt(par[0]*Tree_SiPM[0]));
+      TreeHist->Fill(par[0] * Tree_SiPM[0] + resolution(gen));
+
+    }
+    cout<<"0 : " << par[0]<< "     1 : "<<par[1] <<endl;
+
+    chi2 = Ref_Hist->Chi2Test(TreeHist, "CHI2/NDF");
+    graph->SetPoint(counter, par[0], chi2);
+    counter++;
+    return chi2;
+}
+
+void MakeSiPMCalibration(int run)
+{
+  graph = new TGraph();
+  graph->SetTitle("Calibration;Proportionality; #chi^{2}");
+  counter = 0;
+  int result_counter = 0;
+
+  //////////////////// MINIMIZER ////////////////////
+  ////// First
+    // Minimizer *minimizer = Factory::CreateMinimizer("Minuit2", "Migrad");
+    // ROOT::Math::Functor functor(&Chi2TreeHist, 1);
+    // minimizer->SetFunction(functor);
+    // minimizer->SetLimitedVariable(0, "Proportionality", 0.25, 0.01, 0, 0.5);
+    // minimizer->SetLimitedVariable(1, "res", 3, 0.5, 0, 30);
+    // minimizer->SetPrecision(0.05);
+    // minimizer->Minimize();
+    // const double *bestPar = minimizer->X();
+
+    // ////// Second
+    // minimizer->SetLimitedVariable(0, "Proportionality", bestPar[0], 0.001, 0, 0.5);
+    // minimizer->SetLimitedVariable(1, "res", bestPar[0], 0.5, 0, 30);
+    // minimizer->SetPrecision(1e-5);
+    // minimizer->Minimize();
+    // bestPar = minimizer->X();
+
+    // // ////// Third
+    // // minimizer->SetLimitedVariable(0, "Proportionality", bestPar[0], .005, 0.8, 1.2);
+    // // minimizer->SetPrecision(1e-10);
+    // // minimizer->Minimize();
+    // // bestPar = minimizer->X();
+    // double error = minimizer->Errors()[0];
+    // cout << "SiPM" << "\t CHI2 : " << chi2 << "\t\t Best Proportionality : " << bestPar[0] << " +/- " << error << std::endl;
+
+  //////////////////// SAVE ////////////////////
+  TCanvas *c = new TCanvas(("SiPM_"+to_string(run)).c_str(), ("SiPM_"+to_string(run)).c_str(), 800, 600);
+  c->Divide(1, 2);
+  c->cd(1);
+  Ref_Hist->Draw("HIST");
+
+  Reader_calib_sipm->Restart();
+  TTreeReaderArray<double> Tree_SiPM(*Reader_calib_sipm, "PlasticScintillator_Deposit_Energy");
+
+  TH1D *TreeHist = (TH1D *)Ref_Hist->Clone(("SiPM_" + to_string(0)).c_str());
+  TreeHist->Reset();
+
+  while (Reader_calib_sipm->Next())
+  {
+    normal_distribution<> resolution(0, 1*sqrt(0.25*Tree_SiPM[0]));
+    TreeHist->Fill(0.25*Tree_SiPM[0] + resolution(gen));
+  }
+
+  TreeHist->SetLineColor(kRed);
+  TreeHist->Draw("SAME");
+
+  c->cd(2);
+  graph->Draw("*AP");
+  Merged_File->cd();
+  c->Write();
+
+  result_counter++;
+  // Result_SiPM_Runs->SetPoint(result_counter, , bestPar[0]); /////SAVE FOR MERGED RUN
+  SiPMCalib[run] = make_pair(0, 0);
+  // Result_Si->SetPointError(result_counter, 0, error);
+}
+
 void InitSelection()
 {
-  string CalibFileName = "./Config_Files/Selection_32Ar_"+Catcher+".txt"; //////////////USE MATERIAL
+  string CalibFileName = "./Config_Files/Selection_32Ar_" + Catcher + ".txt"; //////////////USE MATERIAL
   ifstream file(CalibFileName);
 
   if (file.is_open())
@@ -543,12 +670,11 @@ void InitSelection()
     GLogMessage("<SAM> No Run Selection file found");
     exit(0);
   }
-
 }
 
 void InitPeakWindow()
 {
-  string CalibFileName = "./Config_Files/Win_32Ar_"+Catcher+"_F.txt"; //////////////USE MATERIAL
+  string CalibFileName = "./Config_Files/Win_32Ar_" + Catcher + "_F.txt"; //////////////USE MATERIAL
   ifstream fileF(CalibFileName);
 
   for (auto &value : peaks_window_F)
@@ -564,7 +690,7 @@ void InitPeakWindow()
     while (getline(fileF, line))
     {
       istringstream iss(line);
-      int min; 
+      int min;
       int max;
       string DetName;
       iss >> DetName >> min >> max;
@@ -584,7 +710,7 @@ void InitPeakWindow()
     exit(0);
   }
 
-  CalibFileName = "./Config_Files/Win_32Ar_"+Catcher+"_GT.txt"; //////////////USE MATERIAL
+  CalibFileName = "./Config_Files/Win_32Ar_" + Catcher + "_GT.txt"; //////////////USE MATERIAL
   ifstream fileGT(CalibFileName);
 
   for (auto &value : peaks_window_GT)
@@ -600,7 +726,7 @@ void InitPeakWindow()
     while (getline(fileGT, line))
     {
       istringstream iss(line);
-      int min; 
+      int min;
       int max;
       string DetName;
       iss >> DetName >> min >> max;
@@ -630,7 +756,7 @@ int InitCalib()
   string CalibFileName = "Sim_32Ar_AlMylar_F.txt"; //////////////USE MATERIAL
   ifstream file(CalibDir + CalibFileName);
 
-  for (auto &value : detectorCalib_Fermi)
+  for (auto &value : SiliconCalib_Fermi)
   {
     value = 0.;
   }
@@ -667,7 +793,7 @@ int InitCalib()
         {
           if (GetDetector(i) <= 4 and GetDetectorChannel(i) == strip)
           {
-            detectorCalib_Fermi[i] = E;
+            SiliconCalib_Fermi[i] = E;
           }
         }
       }
@@ -677,7 +803,7 @@ int InitCalib()
         {
           if (GetDetector(i) > 4 and GetDetectorChannel(i) == strip)
           {
-            detectorCalib_Fermi[i] = E;
+            SiliconCalib_Fermi[i] = E;
           }
         }
       }
@@ -694,7 +820,7 @@ int InitCalib()
   CalibFileName = "Sim_32Ar_AlMylar_GT1.txt";
   ifstream fileGT(CalibDir + CalibFileName);
 
-  for (auto &value : detectorCalib_Fermi)
+  for (auto &value : SiliconCalib_Fermi)
   {
     value = 0.;
   }
@@ -731,7 +857,7 @@ int InitCalib()
         {
           if (GetDetector(i) <= 4 and GetDetectorChannel(i) == strip)
           {
-            detectorCalib_GT[i] = E;
+            SiliconCalib_GT[i] = E;
           }
         }
       }
@@ -741,7 +867,7 @@ int InitCalib()
         {
           if (GetDetector(i) > 4 and GetDetectorChannel(i) == strip)
           {
-            detectorCalib_GT[i] = E;
+            SiliconCalib_GT[i] = E;
           }
         }
       }
@@ -754,35 +880,21 @@ int InitCalib()
     exit(0);
   }
 
+  // FOR CHECK
+  //  int index = 0;
+  //  for (auto &name : detectorName)
+  //  {
+  //    cout << name << "       " << SiliconCalib_Fermi[index] << endl;
+  //    index++;
+  //  }
 
-  //FOR CHECK
-  // int index = 0;
-  // for (auto &name : detectorName)
-  // {
-  //   cout << name << "       " << detectorCalib_Fermi[index] << endl;
-  //   index++;
-  // }
+  ///////FOR SIPM
+  TFile *Calibration_File = new TFile("../../../../../../mnt/hgfs/shared-2/CALIB/32Ar__a1_b0.root");
+  TTree* tree = (TTree *)Calibration_File->Get("Tree");
+  Reader_calib_sipm = new TTreeReader(tree);
 
   file.close();
   return error;
-}
-
-bool Is_F(double E, int label)
-{
-  if (E > 3100 && E < 3300)
-  {
-    return true;
-  }
-  return false;
-}
-
-bool Is_GT(double E, int label)
-{
-  if (E > 1900 && E < 2200)
-  {
-    return true;
-  }
-  return false;
 }
 
 void SetTime(TFile *file)
@@ -793,3 +905,5 @@ void SetTime(TFile *file)
   double stop_time = Convert_DatetoTime(file_string_Time[file_string_Time.size() - 1].second, file_string_Time[0].first);
   file_Time.push_back(make_pair(start_time, stop_time));
 }
+
+#endif

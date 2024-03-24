@@ -1,5 +1,5 @@
-#ifndef MERGER_GROUPER_HH
-#define MERGER_GROUPER_HH
+#ifndef GROUPER_HH
+#define GROUPER_HH
 
 #include <iostream>
 #include <vector>
@@ -80,8 +80,6 @@ TH1D *HSiPMHigh_Time_False_G;
 TH1D *HSiPMLow_Time_False_G;
 TH1D *HSiPMHigh_SiPM_False_G;
 TH1D *HSiPMLow_SiPM_False_G;
-TH2D *HSiPM_Channel_G[BETA_SIZE + 1];
-TGraph *GSiPM_Channel_G[BETA_SIZE + 1];
 
 double counter_true = 0;
 double counter_high = 0;
@@ -116,6 +114,8 @@ TH2D *HSiPMLowRear_TimeChannel_C[SIGNAL_MAX];
 TH1D *HSiPMHigh_Multiplicity_C;
 TH1D *HSiPMLow_Multiplicity_C;
 TH2D *HSiPM_Multiplicities_C;
+TGraph *GSiPM_Channel_C[BETA_SIZE + 1];
+TProfile *PSiPM_Channel_C[BETA_SIZE + 1];
 
 TTree *Tree_Silicons[SIGNAL_MAX];
 
@@ -147,9 +147,6 @@ inline int InitHistograms_Grouped()
     HSiPMLow_Time_False_G = NULL;
     HSiPMHigh_SiPM_False_G = NULL;
     HSiPMLow_SiPM_False_G = NULL;
-
-    HSiPM_Channel_G[i] = NULL;
-    GSiPM_Channel_G[i] = NULL;
 
     HSiPM_Counter_False_G = NULL;
   }
@@ -246,18 +243,6 @@ inline int InitHistograms_Grouped()
     }
   }
 
-  for (int i = 1; i <= BETA_SIZE; ++i)
-  {
-    HSiPM_Channel_G[i] = new TH2D(("HSiPM_" + to_string(i)).c_str(), ("HSiPM_" + to_string(i)).c_str(), 4000, 0, 4000000, 4000, 0, 4000000);
-    HSiPM_Channel_G[i]->GetXaxis()->SetTitle("SiPM Low [Channel]");
-    HSiPM_Channel_G[i]->GetYaxis()->SetTitle("SiPM High [Channel]");
-    HSiPM_Channel_G[i]->GetXaxis()->CenterTitle();
-    HSiPM_Channel_G[i]->GetYaxis()->CenterTitle();
-    HSiPM_Channel_G[i]->SetDrawOption("COLZ");
-
-    GSiPM_Channel_G[i] = new TGraph();
-  }
-
   HSiPMHigh_Multiplicity_G = new TH1D(("HSiPMHigh_Multiplicity_G"), ("HSiPMHigh_Multiplicity_G"), 10, 0, 10);
   HSiPMHigh_Multiplicity_G->GetXaxis()->SetTitle("Multiplicity");
   HSiPMHigh_Multiplicity_G->GetYaxis()->SetTitle("Counts");
@@ -341,6 +326,9 @@ inline int InitHistograms_Cleaned()
     HSiPMLowRear_Time_C[i] = NULL;
     HSiPMLowRear_TimeChannel_C[i] = NULL;
     HSiPM_Multiplicities_C = NULL;
+
+    GSiPM_Channel_C[i] = NULL;
+    PSiPM_Channel_C[i] = NULL;
   }
 
   for (size_t i = 0; i < detectorNum; ++i)
@@ -433,6 +421,18 @@ inline int InitHistograms_Cleaned()
       HSiPMLowRear_TimeChannel_C[i]->SetDrawOption("COLZ");
     }
   }
+
+  for (int i = 1; i <= BETA_SIZE; ++i)
+  {
+    GSiPM_Channel_C[i] = new TGraph();
+
+    PSiPM_Channel_C[i] = new TProfile(("PSiPM_" + to_string(i)).c_str(), ("PSiPM_" + to_string(i)).c_str(), 500, 0, eLowMax/2, 0, eHighMax);
+    PSiPM_Channel_C[i]->GetXaxis()->SetTitle("SiPM Low [Channel]");
+    PSiPM_Channel_C[i]->GetYaxis()->SetTitle("SiPM High [Channel]");
+    PSiPM_Channel_C[i]->GetXaxis()->CenterTitle();
+    PSiPM_Channel_C[i]->GetYaxis()->CenterTitle(); 
+  }
+
   HSiPMHigh_Multiplicity_C = new TH1D(("HSiPMHigh_Multiplicity_C"), ("HSiPMHigh_Multiplicity_C"), 10, 0, 10);
   HSiPMHigh_Multiplicity_C->GetXaxis()->SetTitle("Multiplicity");
   HSiPMHigh_Multiplicity_C->GetYaxis()->SetTitle("Counts");
@@ -570,16 +570,6 @@ inline int WriteHistograms_Grouped()
   HSiPM_Multiplicities_G->Write();
   delete HSiPM_Multiplicities_G;
 
-  for (int i = 1; i <= BETA_SIZE; ++i)
-  {
-    TCanvas *canvas = new TCanvas(("SiPM_" + to_string(i)).c_str(), ("SiPM_" + to_string(i)).c_str(), 200, 10, 700, 500);
-    canvas->cd();
-    GSiPM_Channel_G[i]->Draw("AP");
-    GSiPM_Channel_G[i]->SetTitle(("SiPM_" + to_string(i)).c_str());
-    canvas->Write();
-    delete canvas;
-  }
-
   SiPM_Multiplicities_G->cd();
   HSiPMHigh_False_G->Write();
   delete HSiPMHigh_False_G;
@@ -697,11 +687,14 @@ inline int WriteHistograms_Cleaned()
   {
     TCanvas *canvas = new TCanvas(("SiPM_" + to_string(i)).c_str(), ("SiPM_" + to_string(i)).c_str(), 200, 10, 700, 500);
     canvas->cd();
-    GSiPM_Channel_G[i]->Draw("AP");
-    GSiPM_Channel_G[i]->SetTitle(("SiPM_" + to_string(i)).c_str());
-    GSiPM_Channel_G[i]->SetName(("SiPM_" + to_string(i)).c_str());
+    GSiPM_Channel_C[i]->SetTitle(("SiPM_" + to_string(i)).c_str());
+    GSiPM_Channel_C[i]->SetName(("SiPM_" + to_string(i)).c_str());
+    GSiPM_Channel_C[i]->Draw("AP");
     canvas->Write();
-    delete GSiPM_Channel_G[i];
+    delete canvas;
+
+    PSiPM_Channel_C[i]->Write();
+    delete PSiPM_Channel_C[i];
   }
 
   return 0;
@@ -782,19 +775,6 @@ void SavingData_Grouped(vector<Signal> SiliconRear, vector<Signal> SiPM_High, ve
       HSiPMLow_Channel_G[it->Label]->Fill(it->Channel);
       HSiPMLowRear_Time_G[it->Label]->Fill(it->Time - TrigSignal.Time);
       HSiPMLowRear_TimeChannel_G[it->Label]->Fill(it->Time - TrigSignal.Time, it->Channel);
-    }
-
-    for (auto ith = SiPM_High.begin(); ith != SiPM_High.end(); ++ith)
-    {
-      for (auto itl = SiPM_Low.begin(); itl != SiPM_Low.end(); ++itl)
-      {
-        if (GetDetectorChannel(ith->Label) == GetDetectorChannel(itl->Label))
-        {
-          HSiPM_Channel_G[GetDetectorChannel(ith->Label)]->Fill(itl->Channel, ith->Channel);
-          GSiPM_Channel_G[GetDetectorChannel(ith->Label)]->SetPoint(counter_graph[GetDetectorChannel(ith->Label)], itl->Channel, ith->Channel);
-          counter_graph[GetDetectorChannel(ith->Label)]++;
-        }
-      }
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -906,7 +886,22 @@ void SavingData_Cleaned(vector<Signal> SiliconRear, vector<Signal> SiPM_High, ve
     HSiPMHigh_Multiplicity_C->Fill(SiPM_High.size());
     HSiPMLow_Multiplicity_C->Fill(SiPM_Low.size());
     HSiPM_Multiplicities_C->Fill(SiPM_High.size(), SiPM_Low.size());
+
+    for (auto ith = SiPM_High.begin(); ith != SiPM_High.end(); ++ith)
+    {
+      for (auto itl = SiPM_Low.begin(); itl != SiPM_Low.end(); ++itl)
+      {
+        if (GetDetectorChannel(ith->Label) == GetDetectorChannel(itl->Label))
+        {
+          GSiPM_Channel_C[GetDetectorChannel(ith->Label)]->SetPoint(counter_graph[GetDetectorChannel(ith->Label)], itl->Channel, ith->Channel);
+          PSiPM_Channel_C[GetDetectorChannel(ith->Label)]->Fill(itl->Channel, ith->Channel);
+          counter_graph[GetDetectorChannel(ith->Label)]++;
+        }
+      }
+    }
   }
+
+  
 
   else
   {

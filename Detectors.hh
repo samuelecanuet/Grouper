@@ -45,7 +45,7 @@ int eSiliN = 10000;
 
 /// SiPM ///
 /// High
-double winHighMin = 100;
+double winHighMin = 0;
 double winHighMax = 250;
 int winHighN = (abs(winHighMin) + winHighMax) / 2;
 double eHighMin = 0;
@@ -53,7 +53,7 @@ double eHighMax = 4000000;
 int eHighN = 4000;
 
 /// Low
-double winLowMin = 100;
+double winLowMin = 0;
 double winLowMax = 250;
 int winLowN = (abs(winLowMin) + winLowMax) / 2;
 double eLowMin = 0;
@@ -123,6 +123,34 @@ inline bool IsSameSiliDetector(int detstrip1, int detstrip2)
   bool res = false;
     res = (GetDetector(detstrip1) == GetDetector(detstrip2));
   return res;
+}
+
+inline int HighLowLabelConversion(int det)
+{
+  int res = -1;
+  if (IsDetectorBetaLow(det))
+    {
+      for (int i = 0; i < detectorNum; i++)
+      {
+        if (IsDetectorBetaHigh(i) && (GetDetectorChannel(i) == GetDetectorChannel(det)))
+        {
+          res = i;
+          break;
+        }
+      }
+    }
+  else if (IsDetectorBetaHigh(det))
+    {
+      for (int i = 0; i < detectorNum; i++)
+      {
+        if (IsDetectorBetaLow(i) && (GetDetectorChannel(i) == GetDetectorChannel(det)))
+        {
+          res = i;
+          break;
+        }
+      }
+    }
+  return (res);
 }
 
 inline int InitDetectors(const string &fname)

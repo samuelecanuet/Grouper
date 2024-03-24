@@ -1,3 +1,6 @@
+#ifndef MATCHER_HH
+#define MATCHER_HH
+
 #include <iostream>
 #include <vector>
 #include <cmath>
@@ -14,6 +17,7 @@
 #include "TF1.h"
 #include "TGraph.h"
 #include "TCanvas.h"
+#include "TProfile.h"
 #include "TGraphErrors.h"
 #include "TTree.h"
 #include "TTreeReader.h"
@@ -67,8 +71,25 @@ TH1D* HSiPMLow_Channel_all[BETA_SIZE+1];
 TH1D* HSiPM_Channel[BETA_SIZE+1];
 TH1D* HSiPM;
 
+TH1D* HSiPMHigh_False;
+TH1D* HSiPMLow_False;
+TH1D* HSiPMHigh_Time_False;
+TH1D* HSiPMLow_Time_False;
+TH1D* HSiPMHigh_SiPM_False;
+TH1D* HSiPMLow_SiPM_False;
+
+TH1D* HSiPMHigh_New;
+TH1D* HSiPMLow_New;
+TH1D* HSiPMHigh_Time_New;
+TH1D* HSiPMLow_Time_New;
+TH1D* HSiPMHigh_SiPM_New;
+TH1D* HSiPMLow_SiPM_New;
+
+
+
 TDirectory *dir_Chi2SiPMLowHigh;
 TDirectory *dir_Chi2SiPMs;
+TDirectory *dir_SiPMsReconstruction;
 
 
 ////////////////////////////////////
@@ -156,7 +177,7 @@ inline int InitHistograms()
     {
         if (IsDetectorSiliStrip(i))
         {
-            HStrip_Channel[i] = new TH1D(("HStrip_Channel_" + detectorName[i]).c_str(), ("HStrip_Channel_" + detectorName[i]).c_str(), eSiliN, eSiliMin, eSiliMax);
+            HStrip_Channel[i] = new TH1D(("HStri_Channel_" + detectorName[i]).c_str(), ("HStri_Channel_" + detectorName[i]).c_str(), eSiliN, eSiliMin, eSiliMax);
             HStrip_Channel[i]->GetXaxis()->SetTitle("Strip [Channel]");
             HStrip_Channel[i]->GetYaxis()->SetTitle("Counts");
             HStrip_Channel[i]->GetXaxis()->CenterTitle();
@@ -164,7 +185,7 @@ inline int InitHistograms()
         }
         if (IsDetectorSiliBack(i))
         {
-            HRear_Channel[i] = new TH1D(("HRear_Channel_" + detectorName[i]).c_str(), ("HRear_Channel_" + detectorName[i]).c_str(), eSiliN, eSiliMin, eSiliMax);
+            HRear_Channel[i] = new TH1D(("HRea_Channel_" + detectorName[i]).c_str(), ("HRea_Channel_" + detectorName[i]).c_str(), eSiliN, eSiliMin, eSiliMax);
             HRear_Channel[i]->GetXaxis()->SetTitle("Rear [Channel]");
             HRear_Channel[i]->GetYaxis()->SetTitle("Counts");
             HRear_Channel[i]->GetXaxis()->CenterTitle();
@@ -174,31 +195,31 @@ inline int InitHistograms()
 
     for (int i = 1; i <= BETA_SIZE; i++)
     {
-            HSiPMHigh_Channel[i] = new TH1D(("HSiPMHigh_" + to_string(i) + "_Channel").c_str(), ("HSiPMHigh_" + to_string(i) + "_Channel").c_str(), eLowN/10, eLowMin, eLowMax);
+            HSiPMHigh_Channel[i] = new TH1D(("HSiPMHigh_" + to_string(i) + "_Channel").c_str(), ("HSiPMHigh_" + to_string(i) + "hannel").c_str(), eLowN/10, eLowMin, eLowMax);
             HSiPMHigh_Channel[i]->GetXaxis()->SetTitle("SiPM [Channel]");
             HSiPMHigh_Channel[i]->GetYaxis()->SetTitle("Counts");
             HSiPMHigh_Channel[i]->GetXaxis()->CenterTitle();
             HSiPMHigh_Channel[i]->GetYaxis()->CenterTitle();
 
-            HSiPMHigh_Channel_all[i] = new TH1D(("HSiPMHigh_all_" + to_string(i) + "_Channel").c_str(), ("HSiPMHigh_all_" + to_string(i) + "_Channel").c_str(), eLowN/10, eLowMin, eLowMax);
+            HSiPMHigh_Channel_all[i] = new TH1D(("HSiPMHigh_all_" + to_string(i) + "_Channel").c_str(), ("HSiPMHigh_all_" + to_string(i) + "hannel").c_str(), eLowN/10, eLowMin, eLowMax);
             HSiPMHigh_Channel_all[i]->GetXaxis()->SetTitle("SiPM [Channel]");
             HSiPMHigh_Channel_all[i]->GetYaxis()->SetTitle("Counts");
             HSiPMHigh_Channel_all[i]->GetXaxis()->CenterTitle();
             HSiPMHigh_Channel_all[i]->GetYaxis()->CenterTitle();
 
-            HSiPMLow_Channel[i] = new TH1D(("HSiPMLow_" + to_string(i) + "_Channel").c_str(), ("HSiPMLow_" + to_string(i) + "_Channel").c_str(), eLowN/10, eLowMin, eLowMax);
+            HSiPMLow_Channel[i] = new TH1D(("HSiPMLow_" + to_string(i) + "_Channel").c_str(), ("HSiPMLow_" + to_string(i) + "hannel").c_str(), eLowN/10, eLowMin, eLowMax);
             HSiPMLow_Channel[i]->GetXaxis()->SetTitle("SiPM [Channel]");
             HSiPMLow_Channel[i]->GetYaxis()->SetTitle("Counts");
             HSiPMLow_Channel[i]->GetXaxis()->CenterTitle();
             HSiPMLow_Channel[i]->GetYaxis()->CenterTitle();
 
-            HSiPMLow_Channel_all[i] = new TH1D(("HSiPMLow_all_" + to_string(i) + "_Channel").c_str(), ("HSiPMLow_all_" + to_string(i) + "_Channel").c_str(), eLowN/10, eLowMin, eLowMax);
+            HSiPMLow_Channel_all[i] = new TH1D(("HSiPMLow_all_" + to_string(i) + "_Channel").c_str(), ("HSiPMLow_all_" + to_string(i) + "hannel").c_str(), eLowN/10, eLowMin, eLowMax);
             HSiPMLow_Channel_all[i]->GetXaxis()->SetTitle("SiPM [Channel]");
             HSiPMLow_Channel_all[i]->GetYaxis()->SetTitle("Counts");
             HSiPMLow_Channel_all[i]->GetXaxis()->CenterTitle();
             HSiPMLow_Channel_all[i]->GetYaxis()->CenterTitle();
 
-            HSiPM_Channel[i] = new TH1D(("HSiPM_" + to_string(i) + "_Channel").c_str(), ("HSiPM_" + to_string(i) + "_Channel").c_str(), eLowN/10, eLowMin, eLowMax);
+            HSiPM_Channel[i] = new TH1D(("HSiPM_" + to_string(i) + "_Channel").c_str(), ("HSiPM_" + to_string(i) + "hannel").c_str(), eLowN/10, eLowMin, eLowMax);
             HSiPM_Channel[i]->GetXaxis()->SetTitle("SiPM [Channel]");
             HSiPM_Channel[i]->GetYaxis()->SetTitle("Counts");
             HSiPM_Channel[i]->GetXaxis()->CenterTitle();
@@ -212,6 +233,79 @@ inline int InitHistograms()
     HSiPM->GetYaxis()->SetTitle("Counts");
     HSiPM->GetXaxis()->CenterTitle();
     HSiPM->GetYaxis()->CenterTitle();
+    
+    HSiPMHigh_False = new TH1D("HSiPMHigh_False", "HSiPMHigh_False", eLowN/10, eLowMin, eLowMax);
+    HSiPMHigh_False->GetXaxis()->SetTitle("SiPM [Channel]");
+    HSiPMHigh_False->GetYaxis()->SetTitle("Counts");
+    HSiPMHigh_False->GetXaxis()->CenterTitle();
+    HSiPMHigh_False->GetYaxis()->CenterTitle();
+
+    HSiPMLow_False = new TH1D("HSiPMLow_False", "HSiPMLow_False", eLowN/10, eLowMin, eLowMax);
+    HSiPMLow_False->GetXaxis()->SetTitle("SiPM [Channel]");
+    HSiPMLow_False->GetYaxis()->SetTitle("Counts");
+    HSiPMLow_False->GetXaxis()->CenterTitle();
+    HSiPMLow_False->GetYaxis()->CenterTitle();
+
+    HSiPMHigh_Time_False = new TH1D("HSiPMHigh_Time_False", "HSiPMHigh_Time_False", winHighN, winHighMin, winHighMax);
+    HSiPMHigh_Time_False->GetXaxis()->SetTitle("SiPM [Channel]");
+    HSiPMHigh_Time_False->GetYaxis()->SetTitle("Counts");
+    HSiPMHigh_Time_False->GetXaxis()->CenterTitle();
+    HSiPMHigh_Time_False->GetYaxis()->CenterTitle();
+
+    HSiPMLow_Time_False = new TH1D("HSiPMLow_Time_False", "HSiPMLow_Time_False", winLowN, winLowMin, winLowMax);
+    HSiPMLow_Time_False->GetXaxis()->SetTitle("SiPM [Channel]");
+    HSiPMLow_Time_False->GetYaxis()->SetTitle("Counts");
+    HSiPMLow_Time_False->GetXaxis()->CenterTitle();
+    HSiPMLow_Time_False->GetYaxis()->CenterTitle();
+
+    HSiPMHigh_SiPM_False = new TH1D("HSiPMHigh_SiPM_False", "HSiPMHigh_SiPM_False", BETA_SIZE, 1, BETA_SIZE+1);
+    HSiPMHigh_SiPM_False->GetXaxis()->SetTitle("SiPM [Channel]");
+    HSiPMHigh_SiPM_False->GetYaxis()->SetTitle("Counts");
+    HSiPMHigh_SiPM_False->GetXaxis()->CenterTitle();
+    HSiPMHigh_SiPM_False->GetYaxis()->CenterTitle();
+
+    HSiPMLow_SiPM_False = new TH1D("HSiPMLow_SiPM_False", "HSiPMLow_SiPM_False", BETA_SIZE, 1, BETA_SIZE+1);
+    HSiPMLow_SiPM_False->GetXaxis()->SetTitle("SiPM [Channel]");
+    HSiPMLow_SiPM_False->GetYaxis()->SetTitle("Counts");
+    HSiPMLow_SiPM_False->GetXaxis()->CenterTitle();
+    HSiPMLow_SiPM_False->GetYaxis()->CenterTitle();
+
+    HSiPMHigh_New = new TH1D("HSiPMHigh_New", "HSiPMHigh_New", 500, eLowMin, eLowMax);
+    HSiPMHigh_New->GetXaxis()->SetTitle("SiPM [Channel]");
+    HSiPMHigh_New->GetYaxis()->SetTitle("Counts");
+    HSiPMHigh_New->GetXaxis()->CenterTitle();
+    HSiPMHigh_New->GetYaxis()->CenterTitle();
+    
+    HSiPMLow_New = new TH1D("HSiPMLow_New", "HSiPMLow_New", 500, eLowMin, eLowMax);
+    HSiPMLow_New->GetXaxis()->SetTitle("SiPM [Channel]");
+    HSiPMLow_New->GetYaxis()->SetTitle("Counts");
+    HSiPMLow_New->GetXaxis()->CenterTitle();
+    HSiPMLow_New->GetYaxis()->CenterTitle();
+
+    HSiPMHigh_Time_New = new TH1D("HSiPMHigh_Time_New", "HSiPMHigh_Time_New", winHighN, winHighMin, winHighMax);
+    HSiPMHigh_Time_New->GetXaxis()->SetTitle("SiPM [Channel]");
+    HSiPMHigh_Time_New->GetYaxis()->SetTitle("Counts");
+    HSiPMHigh_Time_New->GetXaxis()->CenterTitle();
+    HSiPMHigh_Time_New->GetYaxis()->CenterTitle();
+
+    HSiPMLow_Time_New = new TH1D("HSiPMLow_Time_New", "HSiPMLow_Time_New", winLowN, winLowMin, winLowMax);
+    HSiPMLow_Time_New->GetXaxis()->SetTitle("SiPM [Channel]");
+    HSiPMLow_Time_New->GetYaxis()->SetTitle("Counts");
+    HSiPMLow_Time_New->GetXaxis()->CenterTitle();
+    HSiPMLow_Time_New->GetYaxis()->CenterTitle();
+
+    HSiPMHigh_SiPM_New = new TH1D("HSiPMHigh_SiPM_New", "HSiPMHigh_SiPM_New", BETA_SIZE, 1, BETA_SIZE+1);
+    HSiPMHigh_SiPM_New->GetXaxis()->SetTitle("SiPM [Channel]");
+    HSiPMHigh_SiPM_New->GetYaxis()->SetTitle("Counts");
+    HSiPMHigh_SiPM_New->GetXaxis()->CenterTitle();
+    HSiPMHigh_SiPM_New->GetYaxis()->CenterTitle();
+
+    HSiPMLow_SiPM_New = new TH1D("HSiPMLow_SiPM_New", "HSiPMLow_SiPM_New", BETA_SIZE, 1, BETA_SIZE+1);
+    HSiPMLow_SiPM_New->GetXaxis()->SetTitle("SiPM [Channel]");
+    HSiPMLow_SiPM_New->GetYaxis()->SetTitle("Counts");
+    HSiPMLow_SiPM_New->GetXaxis()->CenterTitle();
+    HSiPMLow_SiPM_New->GetYaxis()->CenterTitle();
+
 
     return 0;
 }
@@ -222,52 +316,70 @@ inline int WriteHistograms()
     {
         // if (IsDetectorSiliStrip(i))
         // {
-        //     HStrip_Channel[i]->Write();
+        //     HStri_Channel[i]->Write();
         // }
         // if (IsDetectorSiliBack(i))
         // {
-        //     HRear_Channel[i]->Write();
+        //     HRea_Channel[i]->Write();
         // }
     }
 
     for (int i = 1; i <= BETA_SIZE; i++)
     {
-        dir_Chi2SiPMLowHigh->cd();
-        TCanvas *c = new TCanvas(("HSiPM_Merged" + to_string(i) + "_Channel").c_str(), ("HSiPM_" + to_string(i) + "_Channel").c_str(), 800, 600);
-        c->cd();
-        HSiPMHigh_Channel[i]->SetLineColor(kRed);
-        HSiPMHigh_Channel[i]->Draw();
-        HSiPMLow_Channel[i]->SetLineColor(kBlue);
-        HSiPMLow_Channel[i]->Draw("SAME");
-        HSiPM_Channel[i]->SetLineColor(kBlack);
-        HSiPM_Channel[i]->Draw("SAME");
-        c->Write();
-        delete c;
+        // dir_Chi2SiPMLowHigh->cd();
+        // TCanvas *c = new TCanvas(("HSiPM_Merged" + to_string(i) + "_Channel").c_str(), ("HSiPM_" + to_string(i) + "_Channel").c_str(), 800, 600);
+        // c->cd();
+        // HSiPMHigh_Channel[i]->SetLineColor(kRed);
+        // HSiPMHigh_Channel[i]->Draw();
+        // HSiPMLow_Channel[i]->SetLineColor(kBlue);
+        // HSiPMLow_Channel[i]->Draw("SAME");
+        // HSiPM_Channel[i]->SetLineColor(kBlack);
+        // HSiPM_Channel[i]->Draw("SAME");
+        // c->Write();
+        // delete c;
 
-        dir_Chi2SiPMs->cd();
-        TCanvas *c1 = new TCanvas(("HSiPMHigh_1vs" + to_string(i)).c_str(), ("HSiPMHigh_1vs" + to_string(i)).c_str(), 800, 600);
-        c1->cd();
-        HSiPMHigh_Channel_all[i]->SetLineColor(kBlue);
-        HSiPMHigh_Channel_all[i]->Draw("HIST");
-        HSiPMHigh_Channel_all[1]->SetLineColor(kBlack);
-        HSiPMHigh_Channel_all[1]->Draw("SAME");
-        HSiPMHigh_Channel_all[i]->SetTitle(("HSiPMHigh_1vs" + to_string(i)).c_str());
-        HSiPMHigh_Channel_all[1]->SetTitle(("HSiPMHigh_1vs" + to_string(i)).c_str());
-        c1->Write();
-        delete c1;
+        // dir_Chi2SiPMs->cd();
+        // TCanvas *c1 = new TCanvas(("HSiPMHigh_1vs" + to_string(i)).c_str(), ("HSiPMHigh_1vs" + to_string(i)).c_str(), 800, 600);
+        // c1->cd();
+        // HSiPMHigh_Channel_all[i]->SetLineColor(kBlue);
+        // HSiPMHigh_Channel_all[i]->Draw("HIST");
+        // HSiPMHigh_Channel_all[1]->SetLineColor(kBlack);
+        // HSiPMHigh_Channel_all[1]->Draw("SAME");
+        // HSiPMHigh_Channel_all[i]->SetTitle(("HSiPMHigh_1vs" + to_string(i)).c_str());
+        // HSiPMHigh_Channel_all[1]->SetTitle(("HSiPMHigh_1vs" + to_string(i)).c_str());
+        // c1->Write();
+        // delete c1;
 
-        TCanvas *c2 = new TCanvas(("HSiPMLow_1vs" + to_string(i)).c_str(), ("HSiPMLow_1vs" + to_string(i)).c_str(), 800, 600);
-        c2->cd();
-        HSiPMLow_Channel_all[i]->SetLineColor(kBlue);
-        HSiPMLow_Channel_all[i]->Draw("HIST");
-        HSiPMLow_Channel_all[1]->SetLineColor(kBlack);
-        HSiPMLow_Channel_all[1]->Draw("SAME");
-        HSiPMLow_Channel_all[i]->SetTitle(("HSiPMLow_1vs" + to_string(i)).c_str());
-        HSiPMLow_Channel_all[1]->SetTitle(("HSiPMLow_1vs" + to_string(i)).c_str());
-        c2->Write();
-        delete c2;
+        // TCanvas *c2 = new TCanvas(("HSiPMLow_1vs" + to_string(i)).c_str(), ("HSiPMLow_1vs" + to_string(i)).c_str(), 800, 600);
+        // c2->cd();
+        // HSiPMLow_Channel_all[i]->SetLineColor(kBlue);
+        // HSiPMLow_Channel_all[i]->Draw("HIST");
+        // HSiPMLow_Channel_all[1]->SetLineColor(kBlack);
+        // HSiPMLow_Channel_all[1]->Draw("SAME");
+        // HSiPMLow_Channel_all[i]->SetTitle(("HSiPMLow_1vs" + to_string(i)).c_str());
+        // HSiPMLow_Channel_all[1]->SetTitle(("HSiPMLow_1vs" + to_string(i)).c_str());
+        // c2->Write();
+        // delete c2;
     }
+        dir_SiPMsReconstruction->cd();
+        HSiPMHigh_False->Write();
+        HSiPMLow_False->Write();
+        HSiPMHigh_Time_False->Write();
+        HSiPMLow_Time_False->Write();
+        HSiPMHigh_SiPM_False->Write();
+        HSiPMLow_SiPM_False->Write();
+        
+        HSiPMHigh_New->Write();
+        HSiPMLow_New->Write();
+        HSiPMHigh_Time_New->Write();
+        HSiPMLow_Time_New->Write();
+        HSiPMHigh_SiPM_New->Write();
+        HSiPMLow_SiPM_New->Write();
+
+    
 
     HSiPM->Write();
     return 0;
 }
+
+#endif
