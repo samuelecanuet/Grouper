@@ -20,7 +20,7 @@ SRCEXE    = $(shell ls *.c++)
 EXE       = $(SRCEXE:.c++=)
 SOURCE    = $(shell ls *.hh)
 
-all : $(EXE) $(SOURCE) 
+all : $(EXE) $(SOURCE) $(SRCEXE)
 
 $(EXE): $(SOURCE) $(SRCEXE)
 	${CC} $@.c++ $@.hh Detectors.hh SignalDict.cxx -o $@ ${CFLAGS} ${LIBS} -lboost_filesystem -lboost_system

@@ -226,10 +226,17 @@ int main(int argc, char *argv[])
         profile[i] = (TProfile *)Cal_File->Get(("SiPM_Multiplicities/PSiPM_" + to_string(i)).c_str());
     }
 
+    vector<int> vec_det;
+        vector<Signal> new_SiPMHigh;
+        vector<Signal> new_SiPMLow;
+
     while (Reader->Next())
     {
         Tree_Silicon_W.clear();
         Tree_SiPM_W.clear();
+        vec_det.clear();
+        new_SiPMHigh.clear();
+        new_SiPMLow.clear();
 
         //////MATCHING SILICON
         for (auto &signal : *Tree_Silicon)
@@ -239,9 +246,7 @@ int main(int argc, char *argv[])
         }
 
         // RECONSTRUCTING SiPM LOSSES ////////////////////////////////////////////////////////////////////
-        vector<int> vec_det;
-        vector<Signal> new_SiPMHigh;
-        vector<Signal> new_SiPMLow;
+        
         // cout << "Event : " << Reader->GetCurrentEntry() << " (Si : "<< (*Tree_Silicon)[0].Channel << " )"<<endl;
         // for (auto &ith : *Tree_SiPMHigh)
         // {
@@ -514,7 +519,7 @@ int main(int argc, char *argv[])
 
     while (Reader->Next())
     {
-
+        Tree_SiPM_final.clear();
         ////////////////SUM
         // Tree_Silicon_final = vector<Signal>(Tree_Silicon->begin(), Tree_Silicon->end());
         // if (Tree_SiPM->GetSize() != 0)
@@ -531,6 +536,7 @@ int main(int argc, char *argv[])
 
         ////////////////CUMULATIVE
         Tree_Silicon_final = vector<Signal>(Tree_Silicon->begin(), Tree_Silicon->end());
+
         if (Tree_SiPM->GetSize() != 0)
         {
             for (auto &signal : *Tree_SiPM)
@@ -539,7 +545,6 @@ int main(int argc, char *argv[])
                 Tree_SiPM_final.push_back(signal);
                 HSiPM->Fill(signal.Channel);
             }
-            
         }
         else
         {
