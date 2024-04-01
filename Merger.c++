@@ -44,9 +44,9 @@ int main(int argc, char *argv[])
 
     ///////////////////// CREATE TIME RUNs FILES & BUILD PROTON HISTOGRAM FOR CALIBRATION ///////////////
     InitHistograms();
-    InitCalib();       /////// find detector calib from simulation
+    InitCalib(); /////// find detector calib from simulation
     /////////////////////////////////////////////////////////////////////////////////////////////////////
-    
+
     ////////SILICON CALIBRATION////////
     for (auto &run : runs)
     {
@@ -60,7 +60,6 @@ int main(int argc, char *argv[])
         start_time = Convert_DatetoTime(string_time.first, file_string_Time[0].first);
         stop_time = Convert_DatetoTime(string_time.second, file_string_Time[0].first);
 
-  
         InitMatching();
 
         bool CurrentDetectorSelection[SIGNAL_MAX];
@@ -69,7 +68,7 @@ int main(int argc, char *argv[])
         int TotalEntries = Tree_Read->GetEntries();
         while (Reader->Next())
         {
-            
+
             ULong64_t cEntry = Reader->GetCurrentEntry();
             if (cEntry % 100 == 0 && cEntry > 0)
             {
@@ -78,7 +77,7 @@ int main(int argc, char *argv[])
 
             if (CurrentDetectorSelection[Tree_Silicon[0].Label])
             {
-                
+
                 HSilicon_Channel_Unmatched[Tree_Silicon[0].Label]->Fill(1 / detectorMatching[Tree_Silicon[0].Label] * Tree_Silicon[0].Channel);
                 HSilicon_Channel_Matched[Tree_Silicon[0].Label]->Fill(Tree_Silicon[0].Channel);
                 HSilicon_Channel_Matched_CURRENTRUN[Tree_Silicon[0].Label]->Fill(Tree_Silicon[0].Channel);
@@ -89,7 +88,7 @@ int main(int argc, char *argv[])
         }
         Matched_File->Close();
         MakeSiliconCalibration(run);
-        cout<<endl;
+        cout << endl;
     }
 
     MakeSiliconCalibration(); /////// compute calibration for merged coeficient
@@ -98,9 +97,13 @@ int main(int argc, char *argv[])
     // SiPM_Runs_Tree = new TTree("SiPM_Runs_Tree", "SiPM_Runs_Tree");
     // TList *list = new TList;
     for (int i = 1; i <= BETA_SIZE; i++)
-        {
-            Ref_Hist[i] = new TH1D(("Multiplicity" + to_string(i) + "+").c_str(), ("Multiplicity" + to_string(i) + "+").c_str(), eLowN, 0, eLowMax / 1000);
-        }
+    {
+        Ref_Hist_F[i] = new TH1D(("Fermi_M" + to_string(i)).c_str(), ("Fermi_M" + to_string(i)).c_str(), eLowN, 0, eLowMax / 1000);
+        Ref_Hist_GT[i] = new TH1D(("GT_M" + to_string(i)).c_str(), ("GT_M" + to_string(i)).c_str(), eLowN, 0, eLowMax / 1000);
+    }
+
+    Ref_Hist_F_SUM = new TH1D("Fermi_SUM", "Fermi_SUM", eLowN / 2, 0, eLowMax / 100);
+    Ref_Hist_GT_SUM = new TH1D("GT_SUM", "GT_SUM", eLowN / 2, 0, eLowMax / 100);
 
     for (auto &run : runs)
     {
@@ -111,6 +114,8 @@ int main(int argc, char *argv[])
         TTreeReaderArray<Signal> Tree_Silicon(*Reader, "Tree_Silicon");
         TTreeReaderArray<Signal> Tree_SiPM(*Reader, "Tree_SiPM");
 
+        vector<double> vec;
+
         while (Reader->Next())
         {
             if (Is_F(1 / SiliconCalib[99][Tree_Silicon[0].Label].first * Tree_Silicon[0].Channel, Tree_Silicon[0].Label))
@@ -119,13 +124,43 @@ int main(int argc, char *argv[])
                 {
                     for (auto &SiPM : Tree_SiPM)
                     {
-                        Ref_Hist[i]->Fill(SiPM.Channel / 1000);
+                        Ref_Hist_F[i]->Fill(SiPM.Channel / 1000);
                     }
+                }
+
+                double energy = 0;
+                if (Tree_SiPM.GetSize() == 7)
+                {
+                    for (auto &SiPM : Tree_SiPM)
+                    {
+                        energy += SiPM.Channel;
+                    }
+                    Ref_Hist_F_SUM->Fill(energy / 1000);
                 }
             }
         }
-        
-        
+
+        if (Is_GT(1 / SiliconCalib[99][Tree_Silicon[0].Label].first * Tree_Silicon[0].Channel, Tree_Silicon[0].Label))
+        {
+            for (int i = 1; i <= Tree_SiPM.GetSize(); i++)
+            {
+                for (auto &SiPM : Tree_SiPM)
+                {
+                    Ref_Hist_GT[i]->Fill(SiPM.Channel / 1000);
+                }
+            }
+
+            double energy = 0;
+            if (Tree_SiPM.GetSize() == 7)
+            {
+                for (auto &SiPM : Tree_SiPM)
+                {
+                    energy += SiPM.Channel;
+                }
+                Ref_Hist_GT_SUM->Fill(energy / 1000);
+            }
+        }
+
         // if (run == runs[0])
         // {
         //     SiPM_Runs_Tree = Tree_Read->CloneTree(0);
@@ -144,8 +179,8 @@ int main(int argc, char *argv[])
         Matched_File->Close();
         cout << endl;
     }
-    MakeSiPMCalibration(0);
-     
+    MakeSiPMCalibration(0, "");
+    // MakeSiPMCalibration(0);
 
     // SiPM_Runs_Tree->Merge(list);
     // MakeSiPMCalibration(); /////// compute calibration for merged coeficient
