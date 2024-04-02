@@ -326,40 +326,40 @@ inline int WriteHistograms()
 
     for (int i = 1; i <= BETA_SIZE; i++)
     {
-        // dir_Chi2SiPMLowHigh->cd();
-        // TCanvas *c = new TCanvas(("HSiPM_Merged" + to_string(i) + "_Channel").c_str(), ("HSiPM_" + to_string(i) + "_Channel").c_str(), 800, 600);
-        // c->cd();
-        // HSiPMHigh_Channel[i]->SetLineColor(kRed);
-        // HSiPMHigh_Channel[i]->Draw();
-        // HSiPMLow_Channel[i]->SetLineColor(kBlue);
-        // HSiPMLow_Channel[i]->Draw("SAME");
-        // HSiPM_Channel[i]->SetLineColor(kBlack);
-        // HSiPM_Channel[i]->Draw("SAME");
-        // c->Write();
-        // delete c;
+        dir_Chi2SiPMLowHigh->cd();
+        TCanvas *c = new TCanvas(("HSiPM_Merged" + to_string(i) + "_Channel").c_str(), ("HSiPM_" + to_string(i) + "_Channel").c_str(), 800, 600);
+        c->cd();
+        HSiPMHigh_Channel[i]->SetLineColor(kRed);
+        HSiPMHigh_Channel[i]->Draw();
+        HSiPMLow_Channel[i]->SetLineColor(kBlue);
+        HSiPMLow_Channel[i]->Draw("SAME");
+        HSiPM_Channel[i]->SetLineColor(kBlack);
+        HSiPM_Channel[i]->Draw("SAME");
+        c->Write();
+        delete c;
 
-        // dir_Chi2SiPMs->cd();
-        // TCanvas *c1 = new TCanvas(("HSiPMHigh_1vs" + to_string(i)).c_str(), ("HSiPMHigh_1vs" + to_string(i)).c_str(), 800, 600);
-        // c1->cd();
-        // HSiPMHigh_Channel_all[i]->SetLineColor(kBlue);
-        // HSiPMHigh_Channel_all[i]->Draw("HIST");
-        // HSiPMHigh_Channel_all[1]->SetLineColor(kBlack);
-        // HSiPMHigh_Channel_all[1]->Draw("SAME");
-        // HSiPMHigh_Channel_all[i]->SetTitle(("HSiPMHigh_1vs" + to_string(i)).c_str());
-        // HSiPMHigh_Channel_all[1]->SetTitle(("HSiPMHigh_1vs" + to_string(i)).c_str());
-        // c1->Write();
-        // delete c1;
+        dir_Chi2SiPMs->cd();
+        TCanvas *c1 = new TCanvas(("HSiPMHigh_1vs" + to_string(i)).c_str(), ("HSiPMHigh_1vs" + to_string(i)).c_str(), 800, 600);
+        c1->cd();
+        HSiPMHigh_Channel_all[i]->SetLineColor(kBlue);
+        HSiPMHigh_Channel_all[i]->Draw("HIST");
+        HSiPMHigh_Channel_all[1]->SetLineColor(kBlack);
+        HSiPMHigh_Channel_all[1]->Draw("SAME");
+        HSiPMHigh_Channel_all[i]->SetTitle(("HSiPMHigh_1vs" + to_string(i)).c_str());
+        HSiPMHigh_Channel_all[1]->SetTitle(("HSiPMHigh_1vs" + to_string(i)).c_str());
+        c1->Write();
+        delete c1;
 
-        // TCanvas *c2 = new TCanvas(("HSiPMLow_1vs" + to_string(i)).c_str(), ("HSiPMLow_1vs" + to_string(i)).c_str(), 800, 600);
-        // c2->cd();
-        // HSiPMLow_Channel_all[i]->SetLineColor(kBlue);
-        // HSiPMLow_Channel_all[i]->Draw("HIST");
-        // HSiPMLow_Channel_all[1]->SetLineColor(kBlack);
-        // HSiPMLow_Channel_all[1]->Draw("SAME");
-        // HSiPMLow_Channel_all[i]->SetTitle(("HSiPMLow_1vs" + to_string(i)).c_str());
-        // HSiPMLow_Channel_all[1]->SetTitle(("HSiPMLow_1vs" + to_string(i)).c_str());
-        // c2->Write();
-        // delete c2;
+        TCanvas *c2 = new TCanvas(("HSiPMLow_1vs" + to_string(i)).c_str(), ("HSiPMLow_1vs" + to_string(i)).c_str(), 800, 600);
+        c2->cd();
+        HSiPMLow_Channel_all[i]->SetLineColor(kBlue);
+        HSiPMLow_Channel_all[i]->Draw("HIST");
+        HSiPMLow_Channel_all[1]->SetLineColor(kBlack);
+        HSiPMLow_Channel_all[1]->Draw("SAME");
+        HSiPMLow_Channel_all[i]->SetTitle(("HSiPMLow_1vs" + to_string(i)).c_str());
+        HSiPMLow_Channel_all[1]->SetTitle(("HSiPMLow_1vs" + to_string(i)).c_str());
+        c2->Write();
+        delete c2;
     }
         dir_SiPMsReconstruction->cd();
         HSiPMHigh_False->Write();

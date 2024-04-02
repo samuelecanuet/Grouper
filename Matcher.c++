@@ -520,19 +520,6 @@ int main(int argc, char *argv[])
     while (Reader->Next())
     {
         Tree_SiPM_final.clear();
-        ////////////////SUM
-        // Tree_Silicon_final = vector<Signal>(Tree_Silicon->begin(), Tree_Silicon->end());
-        // if (Tree_SiPM->GetSize() != 0)
-        // {
-        //     Tree_SiPM_final[0] = Signal();
-        //     //////MERGING SiPMs
-        //     for (auto &signal : *Tree_SiPM)
-        //     {
-        //         Tree_SiPM_final[0] += 1/SiPMsMatching[GetDetectorChannel(signal.Label)] * signal;
-        //     }
-        //     HSiPM->Fill(Tree_SiPM_final[0].Channel);
-        // }
-        // Tree_Final->Fill();
 
         ////////////////CUMULATIVE
         Tree_Silicon_final = vector<Signal>(Tree_Silicon->begin(), Tree_Silicon->end());
