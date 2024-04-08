@@ -28,6 +28,7 @@
 #include "TTreeReaderValue.h"
 #include "TTreeReaderArray.h"
 #include "TRandom.h"
+#include "TPaveText.h"
 
 #include "TMinuit.h"
 #include "Math/Minimizer.h"
@@ -86,17 +87,11 @@ TH2D *HSiliconRun_Channel_Matched[SIGNAL_MAX];
 TH2D *HSiliconRun[SIGNAL_MAX];
 TH2D *HSiPMRun_Channel_Unmatched;
 
-TH1D *Ref_Hist_F[BETA_SIZE+1];
-TH1D *Ref_Hist_GT[BETA_SIZE+1];
+TH1D *Ref_Hist_F[BETA_SIZE + 1];
+TH1D *Ref_Hist_GT[BETA_SIZE + 1];
+TH1D *TreeHist_F[BETA_SIZE + 1];
+TH1D *TreeHist_GT[BETA_SIZE + 1];
 TH1D *Ref_Hist_F_SUM;
-TH1D *Ref_Hist_GT_SUM;
-TH1D *TreeHist_F[BETA_SIZE+1];
-TH1D *TreeHist_GT[BETA_SIZE+1];
-TH1D *TreeHist_F_SUM;
-TH1D *TreeHist_GT_SUM;
-TH2D *Hist2D_F_sigma_i;
-TH2D *Hist2D_F_sigma_std;
-TH1D *Hist2D_F_sigma_sum;
 string current_option;
 Minimizer *minimizer = Factory::CreateMinimizer("Minuit2", "Migrad");
 pair<string, double> coefficents[7] = {make_pair("Calibration_OffSet", 0), make_pair("Calibration", 0), make_pair("Resolution_OffSet", 0), make_pair("Resolution_SQRT", 0), make_pair("Resolution_2", 0), make_pair("Threshold", 0), make_pair("Threshold_STD", 0)};
@@ -104,13 +99,17 @@ TTree *SiPM_Runs_Tree;
 TGraph *graph_res;
 TGraph *graph_sqrt;
 double bestCHI2 = 10000;
-TTreeReader *Reader_calib_sipm;
+TTreeReader *Reader_calib_sipm_F;
+TTreeReader *Reader_calib_sipm_GT;
 double chi2;
-vector<double> chi2list;
-TH1D *hist = new TH1D("hist", "hist", 10000, 0, 10000);
-TH2I* Ref_Hist2D = new TH2I("Ref_Hist2D", "Ref_Hist2D",  eLowN/10, 0, eLowMax/1000, 7, 1, 8);
-TH1D* checker_si[SIGNAL_MAX];
+vector<double> chi2_vec;
+TTree* Ref_Tree_F[BETA_SIZE + 1];
+TH1D *checker_si[SIGNAL_MAX];
 TF1 *linear = new TF1("linear", "[0]*x");
+TH1D *histF = new TH1D("histF", "histF", 1000, 0, 10000);
+TH1D *histGT = new TH1D("histGT", "histGT", 1000, 0, 10000);
+TF1 *dark;
+TFile* dark_file;
 
 int Verbose = 0;
 
@@ -125,31 +124,50 @@ double stop_time;
 
 ////////////////////////////////////
 
-void ProgressBar(ULong64_t cEntry, ULong64_t TotalEntries, clock_t start, clock_t Current)
-{
-  if (cEntry % 100000 == 0 && cEntry > 2 * 100000)
-  {
-    Current = clock();
-    const Char_t *Color;
-    Double_t Frac = 1.0 * cEntry / TotalEntries;
-    Double_t Timeclock = ((double)(Current - start) / CLOCKS_PER_SEC);
-    Double_t TimeLeft = Timeclock * (1 / Frac - 1.);
-    Color = "\e[1;31m";
+// void ProgressBar(ULong64_t cEntry, ULong64_t TotalEntries, clock_t start, clock_t Current, string Prefix = "")
+// {
+//   if (cEntry % 100000 == 0 && cEntry > 2 * 100000)
+//   {
+//     Current = clock();
+//     const Char_t *Color;
+//     Double_t Frac = 1.0 * cEntry / TotalEntries;
+//     Double_t Timeclock = ((double)(Current - start) / CLOCKS_PER_SEC);
+//     Double_t TimeLeft = Timeclock * (1 / Frac - 1.);
+//     Color = "\e[1;31m";
 
-    cout << Form("\r%s <SAM> Entry : ")
-         << TotalEntries
-         << " --- "
-         << Form("%4.2f", 100. * cEntry / TotalEntries) << " %"
-         << " --- "
-         << " Time Left : " << Form("%2d min ", (int)TimeLeft / 60)
-         << Form("%02d sec", (int)TimeLeft % 60)
-         << "           " << flush;
-  }
-}
+//     cout << Form(("\r"+Prefix+" Entries : ").c_str())
+//          << TotalEntries
+//          << " --- "
+//          << Form("%4.2f", 100. * cEntry / TotalEntries) << " %"
+//          << " --- "
+//          << " Time Left : " << Form("%2d min ", (int)TimeLeft / 60)
+//          << Form("%02d sec", (int)TimeLeft % 60)
+//          << flush;
+//   }
+
+//   if (cEntry == TotalEntries-1)
+//   {
+//     Current = clock();
+//     const Char_t *Color;
+//     Double_t Frac = 1.0 * cEntry / TotalEntries;
+//     Double_t Timeclock = ((double)(Current - start) / CLOCKS_PER_SEC);
+//     Double_t TimeLeft = Timeclock * (1 / Frac - 1.);
+//     Color = "\e[1;31m";
+//     cout << Form(("\r"+Prefix+" Entries : ").c_str())
+//          << TotalEntries
+//          << " --- "
+//          << Form("%4.2f", 100. * cEntry / TotalEntries) << " %"
+//          << " --- "
+//          << " Time Left : " << Form("%2d min ", (int)TimeLeft / 60)
+//          << Form("%02d sec", (int)TimeLeft % 60)
+//          << flush;
+//     cout << endl;
+//   }
+// }
 
 double Convert_DatetoTime(string datestring, string refstring)
 {
-  std::tm date = {}, referenceDate = {};
+  tm date = {}, referenceDate = {};
   istringstream dateStream(datestring);
   dateStream >> get_time(&date, "%d-%m-%Y %H:%M:%S");
 
@@ -168,7 +186,7 @@ double Convert_DatetoTime(string datestring, string refstring)
 
 double GetOnlyHour(string refstring)
 {
-  std::tm referenceDate = {};
+  tm referenceDate = {};
   istringstream referenceDateStream(refstring);
   referenceDateStream >> get_time(&referenceDate, "%d-%m-%Y %H:%M:%S");
 
@@ -200,11 +218,11 @@ bool Is_GT(double E, int label)
 void InitHistograms()
 {
   //// BINING TIME /////////////////////////
-  bin_time = std::numeric_limits<double>::max();
+  bin_time = numeric_limits<double>::max();
   for (const auto &p : file_Time)
   {
-    double diff = std::abs(p.first - p.second);
-    bin_time = std::min(bin_time, diff);
+    double diff = abs(p.first - p.second);
+    bin_time = min(bin_time, diff);
   }
 
   double t_min = file_Time[0].first;
@@ -275,7 +293,6 @@ void InitHistograms()
       checker_si[i]->GetYaxis()->SetTitle("Counts");
       checker_si[i]->GetXaxis()->CenterTitle();
       checker_si[i]->GetYaxis()->CenterTitle();
-
     }
   }
   for (int i = 1; i <= BETA_SIZE; i++)
@@ -329,8 +346,10 @@ void WriteHistograms()
 
   for (int i = 0; i < SIGNAL_MAX; i++)
   {
+    
     if (IsDetectorSiliStrip(i))
     {
+      checker_si[i]->Write();
       /////////////////UNMATCHED
       dir_HSilicon_Channel_Unmatched->cd();
       HSilicon_Channel_Unmatched[i]->Write();
@@ -408,7 +427,7 @@ void WriteHistograms()
       HSilicon[i]->SetLineColor(kBlack);
       HSilicon[i]->Draw("HIST");
       HSilicon_coinc[i]->SetLineColor(kRed);
-      HSilicon_coinc[i]->Draw("SAME");
+      HSilicon_coinc[i]->Draw("SAME HIST");
       HSilicon_no_coinc[i]->SetLineColor(kBlue);
       HSilicon_no_coinc[i]->Draw("SAME");
       c->Write();
@@ -493,8 +512,6 @@ void WriteHistograms()
   HSiPMRun_Channel_Unmatched->Draw("COLZ");
   c3->Write();
   delete c3;
-
-
 }
 
 void InitFiles()
@@ -591,180 +608,134 @@ void FillHistogramsChi2(const Double_t *bestPar)
     }
   }
 
-  Reader_calib_sipm->Restart();
-  TTreeReaderValue<double> Tree_SiPM(*Reader_calib_sipm, "PlasticScintillator_Deposit_Energy");
 
-  vector<double> vec_e;
-  double sigma_resolution = 0;
-  bool negative_res = false;
+    Reader_calib_sipm_F->Restart();
+    TTreeReaderValue<double> Tree_SiPM(*Reader_calib_sipm_F, "PlasticScintillator_Deposit_Energy");
 
-    for (int i = 0; i < 5; i++)
+    ////////////// conversion exp en kev///////////
+    for (int i = 0; i < BETA_SIZE+1; i++)
     {
-      Reader_calib_sipm->Restart();
-      while (Reader_calib_sipm->Next())
+      Ref_Hist_F[i]->Reset();
+      TTreeReader *Reader = new TTreeReader(Ref_Tree_F[i]);
+      TTreeReaderValue<double> value(*Reader, "Channel");
+      while (Reader->Next())
       {
+        Ref_Hist_F[i]->Fill(coefficents[0].second + coefficents[1].second * (*value));
+      }
+    }
+    /////////////////////////////////////////////////
+
+    vector<double> vec_e;
+    double e_sum;
+    double sigma_resolution = 0;
+    double sigma_resolution_sum = 0;
+    bool negative_res = false;
+
+    for (int i = 0; i < 10; i++)
+    {
+      Reader_calib_sipm_F->Restart();
+      while (Reader_calib_sipm_F->Next())
+      {
+        
         double energy = (*Tree_SiPM);
+        double energy_sum = (*Tree_SiPM);
         int real_multiplicity = 0;
         vec_e.clear();
+        e_sum = 0;
 
         for (int sipm = 1; sipm <= 7; sipm++)
         {
-          double energy_conv = coefficents[0].second + coefficents[1].second * energy;
-          sigma_resolution = coefficents[2].second + coefficents[3].second * sqrt(energy_conv) + coefficents[4].second * pow(energy_conv, 2);
-          if (sigma_resolution < 0) negative_res = true;
+          sigma_resolution = sqrt(pow(coefficents[2].second, 2) + pow(coefficents[3].second * sqrt(energy), 2) + pow(coefficents[4].second * pow(energy, 2), 2));
+          sigma_resolution_sum = sqrt(pow(coefficents[2].second, 2) + pow(coefficents[3].second * sqrt(energy), 2));
+
           normal_distribution<> resolution(0, sigma_resolution);
-          energy_conv += resolution(gen);
+          normal_distribution<> resolution_sum(0, sigma_resolution_sum);
+
+          energy += resolution(gen);
+          energy_sum += resolution_sum(gen);
 
           normal_distribution<> threshold(coefficents[5].second, coefficents[6].second);
-          if (energy_conv > threshold(gen))
+          if (energy > threshold(gen))
           {
             real_multiplicity++;
-            vec_e.push_back(energy_conv);
+            vec_e.push_back(energy);
+            e_sum += energy_sum;
           }
         }
+
         for (int multi = 1; multi <= real_multiplicity; multi++)
         {
           for (int sipm = 1; sipm <= real_multiplicity; sipm++)
           {
-            TreeHist_F[multi]->Fill(vec_e[sipm - 1]);
+            TreeHist_F[multi]->Fill(vec_e[sipm-1]);
           }
         }
+        if (real_multiplicity == 7)
+        {
+          TreeHist_F[0]->Fill(e_sum / 7);
+        }
       }
-    
+    }
+
   }
   // if (negative_res)
   // {
   //   for (int multi = 1; multi <= 7; multi++)
   //       {
   //           TreeHist[multi]->Reset();
-          
-  //       }   
+
+  //       }
   // }
-}
-void FillHistogramsChi2(const Double_t *bestPar, TH1D* &TreeHist)
-{
 
-  for (int index = 0; index < minimizer->NDim(); index++)
-  {
-    for (auto &p : coefficents)
-    {
-      if (p.first == minimizer->VariableName(index))
-      {
-        p.second =  bestPar[index];
-        // cout << p.first << " : " << p.second << endl;
-        break;
-      }
-    }
-  }
-
-  Reader_calib_sipm->Restart();
-  TTreeReaderValue<double> Tree_SiPM(*Reader_calib_sipm, "PlasticScintillator_Deposit_Energy");
-
-  TreeHist->Reset();
-
-  vector<double> vec_e;
-  double energy_sum = 0;
-  for (int i = 0; i < 10; i++)
-  {
-    Reader_calib_sipm->Restart();
-    while (Reader_calib_sipm->Next())
-    {
-      double energy = (*Tree_SiPM);
-      int real_multiplicity = 0;
-      energy_sum = 0;
-      vec_e.clear();
-
-      for (int sipm = 1; sipm <= 7; sipm++)
-      {
-        double energy_conv = coefficents[0].second + coefficents[1].second * energy;
-        normal_distribution<> resolution(0, coefficents[2].second + coefficents[3].second * sqrt(energy_conv) + coefficents[4].second * pow(energy_conv, 2));
-        energy_conv += resolution(gen);
-
-        normal_distribution<> threshold(coefficents[5].second, coefficents[6].second);
-        if (energy_conv > threshold(gen))
-        {
-          real_multiplicity++;
-          energy_sum += energy_conv;
-        }
-      }
-      if (real_multiplicity == 7)
-      {
-        TreeHist->Fill(energy_sum);
-      }
-    }
-  }
-}
 
 inline double Chi2TreeHist(const Double_t *bestPar)
 {
   double chi2 = 0;
   double chi2_std = 0;
-  if (current_option == "SUM")
-  {
-    TreeHist_F_SUM = (TH1D *)Ref_Hist_F_SUM->Clone("SiPM_F_SUM");
-    TreeHist_F_SUM->Reset();
-    TreeHist_GT_SUM = (TH1D *)Ref_Hist_GT_SUM->Clone("SiPM_GT_SUM");
-    TreeHist_GT_SUM->Reset();
-    FillHistogramsChi2(bestPar, TreeHist_F_SUM);
-    FillHistogramsChi2(bestPar, TreeHist_GT_SUM);
+  chi2_vec.clear();
 
-    Ref_Hist_F_SUM->GetXaxis()->SetRangeUser(0, 8000);
-    TreeHist_GT_SUM->GetXaxis()->SetRangeUser(0, 8000);
-    chi2 = Ref_Hist_F_SUM->Chi2Test(TreeHist_F_SUM, "CHI2/NDF");
-    chi2_std = 0;
-
-
-  }
-  else
-  {
-    vector<double> chi2_vec;
-
-    for (int multiplicity = 1; multiplicity <= 7; multiplicity++)
-    {
-      TreeHist_F[multiplicity] = (TH1D *)Ref_Hist_F[multiplicity]->Clone(("SiPM_F" + to_string(multiplicity)).c_str());
-      TreeHist_F[multiplicity]->Reset();
-      TreeHist_GT[multiplicity] = (TH1D *)Ref_Hist_GT[multiplicity]->Clone(("SiPM_GT" + to_string(multiplicity)).c_str());
-      TreeHist_GT[multiplicity]->Reset();
-      
-    }
-
-    FillHistogramsChi2(bestPar);
-    // FillHistogramsChi2(bestPar, TreeHist_GT);
-
-
-    int min = 250;
-    int max = 2000;
-
-    for (int multiplicity = 1; multiplicity <= 7; multiplicity++)
-    {
-      TreeHist_F[7]->GetXaxis()->SetRangeUser(0, 2000);
-      Ref_Hist_F[7]->GetXaxis()->SetRangeUser(0, 2000);
-      TreeHist_F[multiplicity]->Scale(Ref_Hist_F[7]->Integral() / TreeHist_F[7]->Integral());
-
-      Ref_Hist_F[multiplicity]->GetXaxis()->SetRangeUser(0, 300);
-      TreeHist_F[multiplicity]->GetXaxis()->SetRangeUser(0, 300);
-      chi2_vec.push_back(Ref_Hist_F[multiplicity]->Chi2Test(TreeHist_F[multiplicity], " CHI2/NDF"));
-
-      Ref_Hist_F[multiplicity]->GetXaxis()->SetRangeUser(1000, 1300);
-      TreeHist_F[multiplicity]->GetXaxis()->SetRangeUser(1000, 1300);
-      chi2_vec.push_back(Ref_Hist_F[multiplicity]->Chi2Test(TreeHist_F[multiplicity], " CHI2/NDF"));
-
-      // Ref_Hist_GT[multiplicity]->GetXaxis()->SetRangeUser(0, 1300);
-      // TreeHist_GT[multiplicity]->GetXaxis()->SetRangeUser(0, 1300);
-      // chi2_vec.push_back(Ref_Hist_GT[multiplicity]->Chi2Test(TreeHist_GT[multiplicity], " CHI2/NDF"));
-
-    }
-
-    double sum = std::accumulate(chi2_vec.begin(), chi2_vec.end(), 0.0);
-    chi2 = sum / chi2_vec.size();
-
-    double sq_sum = std::inner_product(chi2_vec.begin(), chi2_vec.end(), chi2_vec.begin(), 0.0);
-    chi2_std = std::sqrt(sq_sum / chi2_vec.size() - chi2 * chi2);
-  }
   
 
+  for (int multiplicity = 0; multiplicity <= 7; multiplicity++)
+  {
+    TreeHist_F[multiplicity] = (TH1D *)Ref_Hist_F[multiplicity]->Clone(("SiPM_F" + to_string(multiplicity)).c_str());
+    TreeHist_F[multiplicity]->Reset();
+  }
+
+  FillHistogramsChi2(bestPar);
+
+  int min = 250;
+  int max = 2000;
+
+  for (int multiplicity = 1; multiplicity <= 7; multiplicity++)
+  {
+    // TreeHist_F[multiplicity]->GetXaxis()->SetRangeUser(0, 2000);
+    // Ref_Hist_F[multiplicity]->GetXaxis()->SetRangeUser(0, 2000);
+    // chi2_vec.push_back(Ref_Hist_F[multiplicity]->Chi2Test(TreeHist_F[multiplicity], " CHI2/NDF"));
+
+    // Ref_Hist_F[multiplicity]->GetXaxis()->SetRangeUser(0, 2000);
+    // TreeHist_F[multiplicity]->GetXaxis()->SetRangeUser(0, 2000);
+    // chi2_vec.push_back(Ref_Hist_F[multiplicity]->Chi2Test(TreeHist_F[multiplicity], "CHI2/NDF"));
+    // cout << Ref_Hist_F[multiplicity]->Chi2Test(TreeHist_F[multiplicity], "CHI2/NDF") << endl;
+
+    Ref_Hist_F[multiplicity]->GetXaxis()->SetRangeUser(0, 7000);
+    TreeHist_F[multiplicity]->GetXaxis()->SetRangeUser(0, 7000);
+    chi2_vec.push_back(Ref_Hist_F[multiplicity]->Chi2Test(TreeHist_F[multiplicity], "CHI2/NDF"));
+    cout << Ref_Hist_F[multiplicity]->Chi2Test(TreeHist_F[multiplicity], "CHI2/NDF") << endl;
+
+    // Ref_Hist_F[multiplicity]->GetXaxis()->SetRangeUser(1000, 1300);
+    // TreeHist_F[multiplicity]->GetXaxis()->SetRangeUser(1000, 1300);
+    // chi2_vec.push_back(Ref_Hist_F[multiplicity]->Chi2Test(TreeHist_F[multiplicity], " CHI2/NDF"));
+  }
+
+  double sum = accumulate(chi2_vec.begin(), chi2_vec.end(), 0.0);
+  chi2 = sum / chi2_vec.size();
+
+  double sq_sum = inner_product(chi2_vec.begin(), chi2_vec.end(), chi2_vec.begin(), 0.0);
+  chi2_std = sqrt(sq_sum / chi2_vec.size() - chi2 * chi2);
+
   cout << chi2 << " +/- " << chi2_std << "    {";
-  for (std::size_t i = 0; i < 7; ++i)
+  for (size_t i = 0; i < 7; ++i)
   {
     cout << bestPar[i] << ", ";
   }
@@ -781,393 +752,104 @@ inline double Chi2TreeHist(const Double_t *bestPar)
   return chi2;
 }
 
-void MakeSiPMCalibration(int run, string option)
+void MakeSiPMCalibration(int run)
 {
-  current_option = option;
   counter = 0;
-  int result_counter = 0; 
+  int result_counter = 0;
 
   //////////////////// MINIMIZER ////////////////////
   ////// First
+
   
+
   ROOT::Math::Functor functor(&Chi2TreeHist, 7);
   minimizer->SetFunction(functor);
-  minimizer->SetFixedVariable(0, "Calibration_OffSet", 0.);
-  minimizer->SetLimitedVariable(1, "Calibration", 0.20, 0.001, 0.18, 0.22);
-  minimizer->SetLimitedVariable(2, "Resolution_OffSet", 0.4, 0.1, 0, 1);
-  minimizer->SetLimitedVariable(3, "Resolution_SQRT", 2.5, 0.01, 1, 10.);
-  minimizer->SetLimitedVariable(4, "Resolution_2", 5e-5, 1e-7, 2e-6, 1e-4);
-  minimizer->SetLimitedVariable(5, "Threshold", 14, 0.5, 5, 20);
-  minimizer->SetLimitedVariable(6, "Threshold_STD", 2.5, 0.5, 0, 10);
-  minimizer->SetPrecision(0.00001);
-  minimizer->SetTolerance(9e-15);
+  minimizer->SetFixedVariable(0, "Calibration_OffSet", 9);
+  minimizer->SetLimitedVariable(1, "Calibration", 4.5, 0.1, 4., 5.5);
+  minimizer->SetFixedVariable(2, "Resolution_OffSet", 0);
+  minimizer->SetLimitedVariable(3, "Resolution_SQRT", 0, 1, 0, 5);
+  minimizer->SetLimitedVariable(4, "Resolution_2", 0, 1e6, 0, 5e-5);
+  minimizer->SetFixedVariable(5, "Threshold", 81.7);
+  minimizer->SetFixedVariable(6, "Threshold_STD", 18);
+  minimizer->SetPrecision(0.1);
+  minimizer->SetTolerance(0.1);
   minimizer->SetMaxFunctionCalls(10000000);
   minimizer->SetMaxIterations(10000000);
-
-
-
 
   // minimizer->Minimize();
   // const double *bestPar = minimizer->X();
   // minimizer->PrintResults();
 
+  
 
   // double bestPar[6] = {0.21575, 1.96249, 1.62856e-06, 0., 13.9911, 2.74464};          /// BEST    Positive offset
   // double bestPar[7] = {0.5, 0.203913, 0, 1.85754, 6.62335e-05, 13.3651, 2.12369};       //BEST    Negative offset propop, res, res2, offset, th, th_sigma
 
-  double bestPar[7] = {0, 0.200929, 0.385756, 2.24344, 7.20759e-05, 14.2114, 2.7575, };
+  // double bestPar[7] = {-3, 0.200901, 0., 1.9503, 5e-5, 14., 3.26826, }; //// BEST FOR MULTIPLICITY*
+  double bestPar[7] = {9, 5.119, 0, 3.2545, 7e-6, 81.6739, 17.9915, }; //// BEST FOR MULTIPLICITY
+
+
   double chi2 = Chi2TreeHist(bestPar);
 
-
-  if (option == "SUM")
+  TCanvas *cF = new TCanvas(("SiPM_F" + to_string(run)).c_str(), ("SiPM_F" + to_string(run)).c_str(), 1920, 1080);
+  cF->Divide(3, 3);
+  TCanvas *cGT = new TCanvas(("SiPM_GT" + to_string(run)).c_str(), ("SiPM_GT" + to_string(run)).c_str(), 1920, 1080);
+  cGT->Divide(3, 3);
+  for (int multiplicity = 1; multiplicity <= 7; multiplicity++)
   {
-    
-    TCanvas *c = new TCanvas(("SiPM_SUM" + to_string(run)).c_str(), ("SiPM_SUM" + to_string(run)).c_str(), 1920, 1080);
-    c->Divide(1, 3);
+    cF->cd(multiplicity);
+    TreeHist_F[7]->GetXaxis()->SetRangeUser(0, 8000);
+    Ref_Hist_F[7]->GetXaxis()->SetRangeUser(0, 8000);
+    TreeHist_F[multiplicity]->Scale(Ref_Hist_F[7]->Integral() / TreeHist_F[7]->Integral());
 
-    c->cd(1);
-    Ref_Hist_F_SUM->GetXaxis()->SetRangeUser(0, 2000);
-    TreeHist_F_SUM->GetXaxis()->SetRangeUser(0, 2000);
-    TreeHist_F_SUM->Scale(Ref_Hist_F_SUM->Integral() / TreeHist_F_SUM->Integral());
+    Ref_Hist_F[multiplicity]->GetXaxis()->SetRangeUser(0, 2000);
+    TreeHist_F[multiplicity]->GetXaxis()->SetRangeUser(0, 2000);
+    Ref_Hist_F[multiplicity]->Draw("HIST");
+    TreeHist_F[multiplicity]->SetLineColor(kRed);
+    TreeHist_F[multiplicity]->Draw("SAME HIST");
 
-    Ref_Hist_F_SUM->GetXaxis()->SetRangeUser(0, 2000);
-    TreeHist_F_SUM->GetXaxis()->SetRangeUser(0, 2000);
-    Ref_Hist_F_SUM->Draw("HIST");
-    TreeHist_F_SUM->SetLineColor(kRed);
-    TreeHist_F_SUM->Draw("SAME HIST");
-    
-    c->cd(2);
-    Ref_Hist_GT_SUM->GetXaxis()->SetRangeUser(0, 2000);
-    TreeHist_GT_SUM->GetXaxis()->SetRangeUser(0, 2000);
-
-    Ref_Hist_GT_SUM->GetXaxis()->SetRangeUser(0, 1000);
-    TreeHist_GT_SUM->GetXaxis()->SetRangeUser(0, 1000);
-    Ref_Hist_GT_SUM->Draw("HIST");
-    TreeHist_GT_SUM->SetLineColor(kRed);
-    TreeHist_GT_SUM->Draw("SAME HIST");
-
-    c->cd(3);
-    graph_res = new TGraph();
-    graph_res->SetTitle("Resolution;Energy[keV]; #sigma");
-    graph_sqrt = new TGraph();
-    int counter = 0;
-    for (double e = 1; e <= 6000; e += 10)
-    {
-      counter++;
-      double sigma = (bestPar[2]-bestPar[0])/bestPar[1] + bestPar[3]/bestPar[1] * sqrt(bestPar[0] + bestPar[1] * e) + bestPar[4]/bestPar[1] * pow(bestPar[0] + bestPar[1] * e, 2);
-      graph_res->SetPoint(counter, e, sigma);   
-      graph_sqrt->SetPoint(counter, e, bestPar[3]/bestPar[1] * sqrt(bestPar[0] + bestPar[1] * e));
-    }
-    graph_res->SetLineColor(kRed);
-    graph_res->Draw("AL");
-    graph_sqrt->SetLineColor(kBlack);
-    graph_sqrt->Draw("SAME");
-
-    Merged_File->cd();
-    c->Write();
+    TPaveText *pt = new TPaveText(0.7, 0.65, 1, 0.7, "brNDC");
+    pt->SetFillColor(0);
+    pt->AddText(("#chi^{2} = " + to_string(chi2_vec[multiplicity - 1])).c_str());
+    pt->Draw("SAME");
 
   }
-  else
+  cF->cd(8);
+  TreeHist_F[7]->GetXaxis()->SetRangeUser(0, 6000);
+  Ref_Hist_F[7]->GetXaxis()->SetRangeUser(0, 6000);
+  Ref_Hist_F[0]->Rebin(2);
+  Ref_Hist_F[0]->Scale(Ref_Hist_F[7]->Integral() / TreeHist_F[7]->Integral());
+  Ref_Hist_F[0]->SetLineColor(kBlack);
+  Ref_Hist_F[0]->Draw("HIST");
+  TreeHist_F[0]->Scale(Ref_Hist_F[7]->Integral() / TreeHist_F[7]->Integral() / 28);
+  TreeHist_F[0]->SetLineColor(kRed);
+  TreeHist_F[0]->Draw("SAME HIST");
+
+  cF->cd(9);
+  graph_res = new TGraph();
+  graph_res->SetTitle("Resolution;Energy[keV]; #sigma");
+  graph_sqrt = new TGraph();
+  int counter = 0;
+
+  for (double e = 1; e <= 6000; e += 10)
   {
-    TCanvas *cF = new TCanvas(("SiPM_F" + to_string(run)).c_str(), ("SiPM_F" + to_string(run)).c_str(), 1920, 1080);
-    cF->Divide(3, 3);
-    TCanvas *cGT = new TCanvas(("SiPM_GT" + to_string(run)).c_str(), ("SiPM_GT" + to_string(run)).c_str(), 1920, 1080);
-    cGT->Divide(3, 3);
-    for (int multiplicity = 1; multiplicity <= 7; multiplicity++)
-    {
-      cF->cd(multiplicity);
-      TreeHist_F[multiplicity]->GetXaxis()->SetRangeUser(0, 2000);
-      Ref_Hist_F[multiplicity]->GetXaxis()->SetRangeUser(0, 2000);
-      TreeHist_F[multiplicity]->Scale(Ref_Hist_F[multiplicity]->Integral() / TreeHist_F[multiplicity]->Integral());
+    counter++;
+    double sigma = sqrt(pow(bestPar[2], 2) + pow(bestPar[3] * sqrt(e), 2) + pow(bestPar[4] * pow(e, 2), 2));
+    graph_res->SetPoint(counter, e, sigma);
 
-      Ref_Hist_F[multiplicity]->GetXaxis()->SetRangeUser(0, 400);
-      TreeHist_F[multiplicity]->GetXaxis()->SetRangeUser(0, 400);
-      Ref_Hist_F[multiplicity]->Draw("HIST");
-      TreeHist_F[multiplicity]->SetLineColor(kRed);
-      TreeHist_F[multiplicity]->Draw("SAME HIST");
-
-      cGT->cd(multiplicity);
-      Ref_Hist_GT[7]->GetXaxis()->SetRangeUser(0, 2000);
-      TreeHist_GT[7]->GetXaxis()->SetRangeUser(0, 2000);
-      TreeHist_GT[multiplicity]->Scale(Ref_Hist_GT[7]->Integral() / TreeHist_GT[7]->Integral());
-      
-      Ref_Hist_GT[multiplicity]->GetXaxis()->SetRangeUser(0, 400);
-      TreeHist_GT[multiplicity]->GetXaxis()->SetRangeUser(0, 400);
-      Ref_Hist_GT[multiplicity]->Draw("HIST");
-      TreeHist_GT[multiplicity]->SetLineColor(kRed);
-      TreeHist_GT[multiplicity]->Draw("SAME HIST");
-    }
-
-    cF->cd(9);
-    graph_res = new TGraph();
-    graph_res->SetTitle("Resolution;Energy[keV]; #sigma");
-    graph_sqrt = new TGraph();
-    int counter = 0;
-
-    for (double e = 1; e <= 6000; e += 10)
-    {
-      counter++;
-      double sigma = 4 + bestPar[1] * sqrt(bestPar[0] * e) + bestPar[2] * pow(bestPar[0] * e, 2);
-      graph_res->SetPoint(counter, e, sigma);
-
-      graph_sqrt->SetPoint(counter, e, bestPar[1] * sqrt(bestPar[0] * e));
-    }
-    graph_res->SetLineColor(kRed);
-    graph_res->Draw("AL");
-    graph_sqrt->SetLineColor(kBlack);
-    graph_sqrt->Draw("SAME");
-
-    Merged_File->cd();
-    cF->Write();
-    cGT->Write();
+    graph_sqrt->SetPoint(counter, e, sqrt(pow(bestPar[2], 2) + pow(bestPar[3] * sqrt(e), 2)));
   }
+  graph_res->SetLineColor(kRed);
+  graph_res->Draw("AL");
+  graph_sqrt->SetLineColor(kBlack);
+  graph_sqrt->Draw("SAME");
+
+  Merged_File->cd();
+  cF->Write();
+  cGT->Write();
+
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// inline double Chi2TreeHistSUM(const Double_t *bestPar)
-// {
-  
-  
-//   Reader_calib_sipm->Restart();
-//   TTreeReaderValue<double> Tree_SiPM(*Reader_calib_sipm, "PlasticScintillator_Deposit_Energy");
-//   TH1D *TreeHist[BETA_SIZE+1];
-//   for (int multiplicity = 1; multiplicity <= 7; multiplicity++)
-//   {
-//     TreeHist[multiplicity] = (TH1D *)Ref_Hist_F_SUM[multiplicity]->Clone(("SiPM_" + to_string(multiplicity)).c_str());
-//     TreeHist[multiplicity]->Reset();
-//   }
-//   double vec_e;
-//   normal_distribution<> threshold(bestPar[4], bestPar[5]);
-//   for (int i = 0; i < 5; i++)
-//   {
-//     Reader_calib_sipm->Restart();
-//     while (Reader_calib_sipm->Next())
-//     {
-//       double energy = (*Tree_SiPM);
-//       int real_multiplicity = 0;
-//       vec_e = 0;
-
-//       for (int sipm = 1; sipm <= 7; sipm++)
-//       {
-//         double energy_conv = bestPar[3] + bestPar[0] * energy;
-//         normal_distribution<> resolution(0, bestPar[1] * sqrt(energy_conv) + bestPar[2] * pow(energy_conv, 2));
-//         energy_conv += resolution(gen);
-//         if (energy_conv > threshold(gen))
-//         {
-//           real_multiplicity++;
-//           vec_e += energy_conv;
-//         }
-//       }
-
-//       normal_distribution<> threshold(bestPar[4], bestPar[5]);
-//       if (real_multiplicity == 7)
-//       {
-//         TreeHist[real_multiplicity]->Fill(vec_e);
-//       }
-//     }
-//   }
-
-//   int min = 250;
-//   int max = 2000;
-
-//   for (int multiplicity = 7; multiplicity <= 7; multiplicity++)
-//   {
-//     Ref_Hist_F_SUM[multiplicity]->GetXaxis()->SetRangeUser(0, 7000);
-//     TreeHist[multiplicity]->GetXaxis()->SetRangeUser(0, 7000);
-//     chi2_vec.push_back(Ref_Hist_F_SUM[multiplicity]->Chi2Test(TreeHist[multiplicity], " CHI2/NDF"));
-// //   }
-
-//   double sum = std::accumulate(chi2_vec.begin(), chi2_vec.end(), 0.0);
-//   double chi2 = sum / chi2_vec.size();
-
-//   double sq_sum = std::inner_product(chi2_vec.begin(), chi2_vec.end(), chi2_vec.begin(), 0.0);
-//   double std_chi2 = std::sqrt(sq_sum / chi2_vec.size() - chi2 * chi2);
-  
-
-//   cout << chi2 <<" +/- "<< std_chi2 << "    {";
-//   for (std::size_t i = 0; i < 6; ++i)
-//   {
-//     cout<<bestPar[i]<<", ";
-//   }
-//   cout<<"};";
-//   if (bestCHI2 > chi2)
-//   {
-//     bestCHI2 = chi2;
-//     cout << "    BEST" << endl;
-//   }
-//   else
-//   {
-//     cout << endl;
-//   }
-//   // graph->SetPoint(counter, par[0], chi2);
-//   // counter++;
-//   return chi2;
-// }
-
-// void MakeSiPMCalibrationSUM(int run)
-// {
-//   counter = 0;
-//   int result_counter = 0; 
-
-//   //////////////////// MINIMIZER ////////////////////
-//   ////// First
-//   Minimizer *minimizer = Factory::CreateMinimizer("Minuit2", "Migrad");
-//   ROOT::Math::Functor functor(&Chi2TreeHistSUM, 6);
-//   minimizer->SetFunction(functor);
-//   minimizer->SetLimitedVariable(0, "Proportionality", 0.195, 0.001, 0.19, 0.20);
-//   minimizer->SetLimitedVariable(1, "res", 2, 0.01, 1.8, 2.2);
-//   minimizer->SetLimitedVariable(2, "res2", 1e-8, 1e-10, 1e-9, 1e-7);
-//   minimizer->SetLimitedVariable(3, "offset", 10, 0.1, 0, 50);
-//   minimizer->SetLimitedVariable(4, "th", 14, 0.5, 10, 20);
-//   minimizer->SetLimitedVariable(5, "thssigma", 1.5, 0.5, 1, 3);
-//   minimizer->SetPrecision(0.0001);
-//   // minimizer->SetTolerance(9e-15);
-//   minimizer->SetMaxFunctionCalls(10000000);
-//   minimizer->SetMaxIterations(10000000);
-  // minimizer->Minimize();
-  // const double *bestPar = minimizer->X();
-  // minimizer->PrintResults();
-
-  // //////////////////// SAVE ////////////////////
-  // TCanvas *c = new TCanvas(("SiPM_" + to_string(run)).c_str(), ("SiPM_" + to_string(run)).c_str(), 1920, 1080);
-  // c->Divide(3, 3);
-
-  
-  // Reader_calib_sipm->Restart();
-  // TTreeReaderValue<double> Tree_SiPM(*Reader_calib_sipm, "PlasticScintillator_Deposit_Energy");
-
-
-  // // double bestPar[6] = {0.19812, 1.92325, 0e-05, 0, 14.3122, 1.52057};
-
-  // TH1D *TreeHist[BETA_SIZE];
-  // for (int multiplicity = 1; multiplicity <= 7; multiplicity++)
-  // {
-  //   TreeHist[multiplicity] = (TH1D *)Ref_Hist_F_SUM[multiplicity]->Clone(("M" + to_string(multiplicity) + "+").c_str());
-  //   TreeHist[multiplicity]->Reset();
-  // }
-  // TreeHist[8] = (TH1D *)Ref_Hist_F_SUM[7]->Clone(("SiPM_" + to_string(8)).c_str());
-  // TreeHist[8]->SetName("Without Trigger");
-  // TreeHist[8]->Reset();
-
-  // double vec_e;
-  // normal_distribution<> threshold(bestPar[4], bestPar[5]);
-  // for (int i = 0; i < 5; i++)
-  // {
-  //   Reader_calib_sipm->Restart();
-  //   while (Reader_calib_sipm->Next())
-  //   {
-  //     double energy = (*Tree_SiPM);
-  //     int real_multiplicity = 0;
-  //     vec_e = 0;
-
-  //     for (int sipm = 1; sipm <= 7; sipm++)
-  //     {
-  //       double energy_conv = bestPar[3] + bestPar[0] * energy;
-  //       normal_distribution<> resolution(0, bestPar[1] * sqrt(energy_conv) + bestPar[2] * pow(energy_conv, 2));
-  //       energy_conv += resolution(gen);
-  //       if (energy_conv > threshold(gen))
-  //       {
-  //         real_multiplicity++;
-  //         vec_e += energy_conv;
-  //       }
-  //     }
-
-  //     normal_distribution<> threshold(bestPar[4], bestPar[5]);
-  //     if (real_multiplicity == 7)
-  //     {
-  //       TreeHist[real_multiplicity]->Fill(vec_e);
-  //     }
-  //   }
-  // }
-
-//   for (int multiplicity = 1; multiplicity <= 7; multiplicity++)
-//   {
-//     c->cd(multiplicity);
-//     TreeHist[7]->GetXaxis()->SetRangeUser(1000, 6000);
-//     Ref_Hist_F_SUM[7]->GetXaxis()->SetRangeUser(1000, 6000);
-//     TreeHist[multiplicity]->Scale(Ref_Hist_F_SUM[7]->Integral() / TreeHist[7]->Integral());
-
-//     TreeHist[multiplicity]->GetXaxis()->SetRangeUser(0, 500);
-//     Ref_Hist_F_SUM[multiplicity]->GetXaxis()->SetRangeUser(0, 500);
-//     TreeHist[multiplicity]->SetLineColor(kRed);
-//     TreeHist[multiplicity]->Draw("HIST");
-//     Ref_Hist_F_SUM[multiplicity]->Draw("SAME HIST");
-//   }
-
-//   c->cd(8);
-//     TreeHist[8]->GetXaxis()->SetRangeUser(400, 2000);
-//     Ref_Hist_F_SUM[1]->GetYaxis()->SetRangeUser(0, 1200);
-//     Ref_Hist_F_SUM[1]->GetXaxis()->SetRangeUser(400, 2000);
-//     TreeHist[8]->Scale(Ref_Hist_F_SUM[1]->Integral() / TreeHist[8]->Integral());
-//     TreeHist[8]->GetXaxis()->SetRangeUser(0, 400);
-//     TreeHist[8]->SetLineColor(kRed);
-//     TreeHist[8]->Draw("HIST");
-//     Ref_Hist_F_SUM[1]->GetXaxis()->SetRangeUser(0, 400);
-//     Ref_Hist_F_SUM[1]->Draw("SAME HIST");
-  
-
-//   c->cd(9);
-//   graph_res = new TGraph();
-//   graph_res->SetTitle("Resolution;Energy[keV]; #sigma");
-
-//   graph_sqrt = new TGraph();
-
-//   for (double e = 1; e <= 6000; e+=10)
-//   {
-//     counter++;
-//     double sigma = -bestPar[3]/bestPar[0] + bestPar[1]/bestPar[0] * sqrt(bestPar[3] + bestPar[0] * e) + bestPar[2]/bestPar[0] * pow(bestPar[3] + bestPar[0] * e, 2);
-//     graph_res->SetPoint(counter, e, sigma);
-
-//     graph_sqrt->SetPoint(counter, e, -bestPar[3]/bestPar[0] + bestPar[1]/bestPar[0] * sqrt(bestPar[3] + bestPar[0] * e));
-//   }
-//   graph_res->SetLineColor(kRed);
-//   graph_res->Draw("AL");
-//   graph_sqrt->SetLineColor(kBlack);
-//   graph_sqrt->Draw("SAME");
-
-//   Merged_File->cd();
-//   c->Write();
-
-//   result_counter++;
-//   // Result_SiPM_Runs->SetPoint(result_counter, , bestPar[0]); /////SAVE FOR MERGED RUN
-//   SiPMCalib[run] = make_pair(0, 0);
-//   // Result_Si->SetPointError(result_counter, 0, error);
-// }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 void InitSelection()
 {
@@ -1279,6 +961,40 @@ void InitPeakWindow()
     GLogMessage("<SAM> No Window file found");
     exit(0);
   }
+}
+
+vector<int> LabelSimToExp(int label_sim)
+{
+  vector<int> label_exp(4);
+
+  if (label_sim < 0)
+  {
+    label_exp[0] = 110 - label_sim % 10;
+    label_exp[1] = 120 - label_sim % 10;
+    label_exp[2] = 130 - label_sim % 10;
+    label_exp[3] = 140 - label_sim % 10;
+  }
+  else
+  {
+    label_exp[0] = 150 + label_sim % 10;
+    label_exp[1] = 160 + label_sim % 10;
+    label_exp[2] = 170 + label_sim % 10;
+    label_exp[3] = 180 + label_sim % 10;
+  }
+
+  for (int &label : label_exp)
+  {
+    for (int i = 0; i < SIGNAL_MAX; i++)
+    {
+      if (detectorInfo[i] == label)
+      {
+        label = detectorCoder[i];
+        break;
+      }
+    }
+  }
+
+  return label_exp;
 }
 
 int InitCalib()
@@ -1414,6 +1130,8 @@ int InitCalib()
     exit(0);
   }
 
+  file.close();
+
   // FOR CHECK
   //  int index = 0;
   //  for (auto &name : detectorName)
@@ -1422,7 +1140,14 @@ int InitCalib()
   //    index++;
   //  }
 
+  return error;
+}
+
+int InitCalibSiPM()
+{
+  int error = 0;
   ///////FOR SIPM
+  clock_t start = clock(), Current;
   TFile *Calibration_File = new TFile("../../../../../../mnt/hgfs/shared-2/32Ar_a1_b0_1.root");
   TTree *tree = (TTree *)Calibration_File->Get("Tree");
   TTreeReader *Reader = new TTreeReader(tree);
@@ -1431,15 +1156,26 @@ int InitCalib()
   TTreeReaderArray<double> SiliconEnergy(*Reader, "Silicon_Detector_Deposit_Energy");
 
   TFile *f = new TFile("f.root", "RECREATE");
-  TTree *Filtered_Tree = new TTree("Filtered_Tree", "Filtered_Tree");
   double Energy_SiPM = 0;
-  Filtered_Tree->Branch("PlasticScintillator_Deposit_Energy", &Energy_SiPM, "PlasticScintillator_Deposit_Energy/D");
+  TTree *Filtered_Tree_F = new TTree("Filtered_Tree_F", "Filtered_Tree_F");
+  Filtered_Tree_F->Branch("PlasticScintillator_Deposit_Energy", &Energy_SiPM, "PlasticScintillator_Deposit_Energy/D");
+  TTree *Filtered_Tree_GT = new TTree("Filtered_Tree_GT", "Filtered_Tree_GT");
+  Filtered_Tree_GT->Branch("PlasticScintillator_Deposit_Energy", &Energy_SiPM, "PlasticScintillator_Deposit_Energy/D");
 
   bool fermi = false;
+  int TotalEntries = Reader->GetEntries();
   while (Reader->Next())
   {
+
+    ULong64_t cEntry = Reader->GetCurrentEntry();
+    if (cEntry % 100 == 0 && cEntry > 0)
+    {
+      ProgressBar(cEntry, TotalEntries, start, Current, "<SAM> Reading Simulation File | ");
+    }
+
     bool interstrip = false;
     bool fermi = false;
+    bool gt = false;
     for (int strip_A : DetectorCode)
     {
       for (int strip_B : DetectorCode)
@@ -1454,25 +1190,47 @@ int InitCalib()
 
     if (!interstrip && *PlasticEnergy > 0)
     {
-      for (double silicon : SiliconEnergy)
+      for (int i = 0; i < DetectorCode.GetSize(); i++)
       {
-        if (silicon > 3100 && silicon < 3400)
+        for (int label : LabelSimToExp(DetectorCode[i]))
         {
-          fermi = true;
+          if (Is_F(SiliconEnergy[i], label))
+          {  // histF->Scale(histGT->Integral() / histF->Integral());
+
+            fermi = true;
+            break;
+          }
+          if (Is_GT(SiliconEnergy[i], label))
+          {
+            gt = true;
+            break;
+          }
         }
       }
 
       if (fermi)
       {
         Energy_SiPM = (*PlasticEnergy) / 1000;
-        Filtered_Tree->Fill();
-        hist->Fill(Energy_SiPM);
+        Filtered_Tree_F->Fill();
+        histF->Fill(Energy_SiPM);
+      }
+      else if (gt)
+      {
+        Energy_SiPM = (*PlasticEnergy) / 1000;
+        Filtered_Tree_GT->Fill();
+        histGT->Fill(Energy_SiPM);
       }
     }
   }
-  Reader_calib_sipm = new TTreeReader(Filtered_Tree);
-  hist->Write();
-  file.close();
+  Reader_calib_sipm_F = new TTreeReader(Filtered_Tree_F);
+  Reader_calib_sipm_GT = new TTreeReader(Filtered_Tree_GT);
+  TCanvas* cFGT = new TCanvas("cFGT", "cFGT", 800, 600);
+  cFGT->cd();
+  // histF->Scale(histGT->Integral() / histF->Integral());
+  histGT->SetLineColor(kRed);
+  histGT->Draw("HIST");
+  histF->Draw("SAME HIST");
+  cFGT->Write();
   return error;
 }
 

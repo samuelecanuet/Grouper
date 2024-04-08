@@ -94,29 +94,27 @@ TDirectory *dir_SiPMsReconstruction;
 
 ////////////////////////////////////
 
-void ProgressBar(ULong64_t cEntry, ULong64_t TotalEntries, clock_t start, clock_t Current)
-{
-    if (cEntry % 100000 == 0 && cEntry > 2*100000)
-        {
-            Current = clock();
-            const Char_t *Color;
-            Double_t Frac = 1.0 * cEntry / TotalEntries;
-            Double_t Timeclock = ((double)(Current - start) / CLOCKS_PER_SEC);
-            Double_t TimeLeft = Timeclock * (1 / Frac - 1.);
-            Color = "\e[1;31m";
+// void ProgressBar(ULong64_t cEntry, ULong64_t TotalEntries, clock_t start, clock_t Current)
+// {
+//     if (cEntry % 100000 == 0 && cEntry > 2*100000)
+//         {
+//             Current = clock();
+//             const Char_t *Color;
+//             Double_t Frac = 1.0 * cEntry / TotalEntries;
+//             Double_t Timeclock = ((double)(Current - start) / CLOCKS_PER_SEC);
+//             Double_t TimeLeft = Timeclock * (1 / Frac - 1.);
+//             Color = "\e[1;31m";
 
-            cout << Form("\r%s <SAM> Entry : ")
-                 << TotalEntries
-                 << " --- "
-                 << Form("%4.2f", 100. * cEntry / TotalEntries) << " %"
-                 << " --- "
-                 << " Time Left : " << Form("%2d min ", (int)TimeLeft / 60)
-                 << Form("%02d sec", (int)TimeLeft % 60)
-                 << "           "<<flush;
-        }
-}
-
-
+//             cout << Form("\r%s <SAM> Entries : ")
+//                  << TotalEntries
+//                  << " --- "
+//                  << Form("%4.2f", 100. * cEntry / TotalEntries) << " %"
+//                  << " --- "
+//                  << " Time Left : " << Form("%2d min ", (int)TimeLeft / 60)
+//                  << Form("%02d sec", (int)TimeLeft % 60)
+//                  << "           "<<flush;
+//         }
+// }
 
 inline double Chi2TreeHist(const Double_t *par)
 {
@@ -136,7 +134,7 @@ inline double Chi2TreeHist(const Double_t *par)
     if (TreeHist->GetEntries() < 100 || Ref_Hist->GetEntries() < 100)
         return 0;
 
-    chi2 = Ref_Hist->Chi2Test(TreeHist, "UU CHI2/NDF");
+    chi2 = Ref_Hist->Chi2Test(TreeHist, "CHI2/NDF");
     graph->SetPoint(counter, par[0], chi2);
     counter++;
     return chi2;
@@ -164,7 +162,7 @@ inline double Chi2SiPM(const Double_t *par)
     if (TreeHist->GetEntries() == 0)
         return 0;
 
-    chi2 = Ref_Hist->Chi2Test(TreeHist, "WW CHI2/NDF");
+    chi2 = Ref_Hist->Chi2Test(TreeHist, "CHI2/NDF");
     graph->SetPoint(counter, par[0], chi2);
     counter++;
     return chi2;
@@ -312,22 +310,10 @@ inline int InitHistograms()
 
 inline int WriteHistograms()
 {
-    for (size_t i = 0; i < detectorNum; ++i)
-    {
-        // if (IsDetectorSiliStrip(i))
-        // {
-        //     HStri_Channel[i]->Write();
-        // }
-        // if (IsDetectorSiliBack(i))
-        // {
-        //     HRea_Channel[i]->Write();
-        // }
-    }
-
     for (int i = 1; i <= BETA_SIZE; i++)
     {
         dir_Chi2SiPMLowHigh->cd();
-        TCanvas *c = new TCanvas(("HSiPM_Merged" + to_string(i) + "_Channel").c_str(), ("HSiPM_" + to_string(i) + "_Channel").c_str(), 800, 600);
+        TCanvas *c = new TCanvas(("HSiPM_Merged" + to_string(i) + "_Channel").c_str(), ("HSiPM_Merged" + to_string(i) + "_Channel").c_str(), 800, 600);
         c->cd();
         HSiPMHigh_Channel[i]->SetLineColor(kRed);
         HSiPMHigh_Channel[i]->Draw();
@@ -338,28 +324,25 @@ inline int WriteHistograms()
         c->Write();
         delete c;
 
-        dir_Chi2SiPMs->cd();
-        TCanvas *c1 = new TCanvas(("HSiPMHigh_1vs" + to_string(i)).c_str(), ("HSiPMHigh_1vs" + to_string(i)).c_str(), 800, 600);
-        c1->cd();
-        HSiPMHigh_Channel_all[i]->SetLineColor(kBlue);
+        TCanvas *ch = new TCanvas(("HSiPM_BeforeMerged_High" + to_string(i) + "_Channel").c_str(), ("HSiPM_BeforeMerged_High" + to_string(i) + "_Channel").c_str(), 800, 600);
+        ch->cd();
+        HSiPMHigh_Channel_all[i]->SetLineColor(kRed);
         HSiPMHigh_Channel_all[i]->Draw("HIST");
-        HSiPMHigh_Channel_all[1]->SetLineColor(kBlack);
-        HSiPMHigh_Channel_all[1]->Draw("SAME");
-        HSiPMHigh_Channel_all[i]->SetTitle(("HSiPMHigh_1vs" + to_string(i)).c_str());
-        HSiPMHigh_Channel_all[1]->SetTitle(("HSiPMHigh_1vs" + to_string(i)).c_str());
-        c1->Write();
-        delete c1;
+        HSiPM_Channel[i]->SetLineColor(kBlack);
+        HSiPM_Channel[i]->Draw("SAME");
+        ch->Write();
+        delete ch;
 
-        TCanvas *c2 = new TCanvas(("HSiPMLow_1vs" + to_string(i)).c_str(), ("HSiPMLow_1vs" + to_string(i)).c_str(), 800, 600);
-        c2->cd();
+        TCanvas *cl = new TCanvas(("HSiPM_BeforeMerged_Low" + to_string(i) + "_Channel").c_str(), ("HSiPM_BeforeMerged_Low" + to_string(i) + "_Channel").c_str(), 800, 600);
+        cl->cd();
         HSiPMLow_Channel_all[i]->SetLineColor(kBlue);
         HSiPMLow_Channel_all[i]->Draw("HIST");
-        HSiPMLow_Channel_all[1]->SetLineColor(kBlack);
-        HSiPMLow_Channel_all[1]->Draw("SAME");
-        HSiPMLow_Channel_all[i]->SetTitle(("HSiPMLow_1vs" + to_string(i)).c_str());
-        HSiPMLow_Channel_all[1]->SetTitle(("HSiPMLow_1vs" + to_string(i)).c_str());
-        c2->Write();
-        delete c2;
+        HSiPM_Channel[i]->SetLineColor(kBlack);
+        HSiPM_Channel[i]->Draw("SAME");
+        cl->Write();
+        delete cl;
+
+        
     }
         dir_SiPMsReconstruction->cd();
         HSiPMHigh_False->Write();

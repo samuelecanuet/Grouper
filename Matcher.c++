@@ -3,6 +3,7 @@
 #include "Math/Minimizer.h"
 #include "Math/Functor.h"
 #include "Math/Factory.h"
+#include <ctime>
 
 using namespace std;
 using namespace ROOT::Math;
@@ -245,6 +246,18 @@ int main(int argc, char *argv[])
             Tree_Silicon_W.push_back(signal);
         }
 
+        /////FOR SAVING BEFORE MERGING//////
+        for (auto &signal : *Tree_SiPMHigh)
+        {
+            HSiPMHigh_Channel_all[GetDetectorChannel(signal.Label)]->Fill( 1 / SiPMLowHighMatching[GetDetectorChannel(signal.Label)] * signal.Channel);
+        }
+
+        for (auto &signal : *Tree_SiPMLow)
+        {
+            HSiPMLow_Channel_all[GetDetectorChannel(signal.Label)]->Fill(signal.Channel);
+        }
+        ///////////////////////////////////
+
         // RECONSTRUCTING SiPM LOSSES ////////////////////////////////////////////////////////////////////
         
         // cout << "Event : " << Reader->GetCurrentEntry() << " (Si : "<< (*Tree_Silicon)[0].Channel << " )"<<endl;
@@ -400,22 +413,12 @@ int main(int argc, char *argv[])
         }
         Tree_Write->Fill();
 
-        /////FOR SAVING BEFORE MERGING//////
-        for (auto &signal : *Tree_SiPMHigh)
-        {
-            HSiPMHigh_Channel_all[GetDetectorChannel(signal.Label)]->Fill(signal.Channel);
-        }
-
-        for (auto &signal : *Tree_SiPMLow)
-        {
-            HSiPMLow_Channel_all[GetDetectorChannel(signal.Label)]->Fill(signal.Channel);
-        }
-        ///////////////////////////////////
+        
     }
 
     Tree_Write->Write();
 
-    ////// Matching all SiPMs/////
+    // ////// Matching all SiPMs/////
     cout << "<SAM> Matching SiPMs" << endl;
     dir_Chi2SiPMs = OutputFile->mkdir("SiPMs_Matching");
     dir_Chi2SiPMs->cd();
@@ -429,81 +432,181 @@ int main(int argc, char *argv[])
     range_high = 1000000;
     Tree = (TTree *)OutputFile->Get("Tree_LowHighMatched");
     Reader = new TTreeReader(Tree_Write);
+
+
+    
+
     for (size_t i = 1; i <= BETA_SIZE; ++i)
     {
-        graph = new TGraph();
-        graph->SetTitle("Gain_Matching;Proportionality; #chi^{2}");
-        counter = 0;
 
-        current_SiPM = i;
+    graph = new TGraph();
+    graph->SetTitle("Gain_Matching;Proportionality; #chi^{2}");
+    counter = 0;
 
-        //////////////////// MINIMIZER ////////////////////
-        ////// First
-        Minimizer *minimizer = Factory::CreateMinimizer("Minuit2", "Migrad");
-        ROOT::Math::Functor functor(&Chi2SiPM, 1);
-        minimizer->SetFunction(functor);
-        minimizer->SetLimitedVariable(0, "Proportionality", 1., .05, 0.6, 1.2);
-        minimizer->SetPrecision(0.05);
-        minimizer->Minimize();
-        const double *bestPar = minimizer->X();
+    current_SiPM = i;
 
-        ////// Second
-        minimizer->SetLimitedVariable(0, "Proportionality", bestPar[0], .05, 0.6, 1.2);
-        minimizer->SetPrecision(1e-5);
-        minimizer->Minimize();
-        bestPar = minimizer->X();
+    //////////////////// MINIMIZER ////////////////////
+    ////// First
+    Minimizer *minimizer = Factory::CreateMinimizer("Minuit2", "Migrad");
+    ROOT::Math::Functor functor(&Chi2SiPM, 1);
+    minimizer->SetFunction(functor);
+    minimizer->SetLimitedVariable(0, "Proportionality", 1., .05, 0.6, 1.2);
+    minimizer->SetPrecision(0.05);
+    minimizer->Minimize();
+    const double *bestPar = minimizer->X();
 
-        ////// Third
-        minimizer->SetLimitedVariable(0, "Proportionality", bestPar[0], .005, 0.6, 1.2);
-        minimizer->SetPrecision(1e-10);
-        minimizer->Minimize();
-        bestPar = minimizer->X();
-        double error = minimizer->Errors()[0];
-        std::cout << "SiPM " + to_string(i) << "\t CHI2 : " << chi2 << "\t\t Best Proportionality : " << bestPar[0] << " +/- " << error << std::endl;
+    ////// Second
+    minimizer->SetLimitedVariable(0, "Proportionality", bestPar[0], .05, 0.6, 1.2);
+    minimizer->SetPrecision(1e-5);
+    minimizer->Minimize();
+    bestPar = minimizer->X();
 
-        //////////////////// SAVE ////////////////////
-        TCanvas *c = new TCanvas(("HSiPM_Matched" + to_string(i) + "_Channel").c_str(), ("HSiPM_Matched" + to_string(i) + "_Channel").c_str(), 800, 600);
-        c->Divide(1, 3);
-        c->cd(1);
-        Ref_Hist->GetXaxis()->UnZoom();
-        Ref_Hist->Draw("HIST");
+    ////// Third
+    minimizer->SetLimitedVariable(0, "Proportionality", bestPar[0], .005, 0.6, 1.2);
+    minimizer->SetPrecision(1e-10);
+    minimizer->Minimize();
+    bestPar = minimizer->X();
+    double error = minimizer->Errors()[0];
+    std::cout << "SiPM " + to_string(i) << "\t CHI2 : " << chi2 << "\t\t Best Proportionality : " << bestPar[0] << " +/- " << error << std::endl;
 
-        Reader->Restart();
-        TTreeReaderArray<Signal> *SiPM = new TTreeReaderArray<Signal>(*Reader, "Tree_SiPM");
-        TH1D *TreeHist = (TH1D *)Ref_Hist->Clone((detectorName[i] + "_" + to_string(bestPar[0])).c_str());
-        TreeHist->Reset();
-        while (Reader->Next())
+    //////////////////// SAVE ////////////////////
+    TCanvas *c = new TCanvas(("HSiPM_Matched" + to_string(i) + "_Channel").c_str(), ("HSiPM_Matched" + to_string(i) + "_Channel").c_str(), 800, 600);
+    c->Divide(1, 3);
+    c->cd(1);
+    Ref_Hist->GetXaxis()->UnZoom();
+    Ref_Hist->Draw("HIST");
+
+    Reader->Restart();
+    TTreeReaderArray<Signal> *SiPM = new TTreeReaderArray<Signal>(*Reader, "Tree_SiPM");
+    TH1D *TreeHist = (TH1D *)Ref_Hist->Clone((detectorName[i] + "_" + to_string(bestPar[0])).c_str());
+    TreeHist->Reset();
+    while (Reader->Next())
+    {
+        for (size_t j = 0; j < SiPM->GetSize(); j++)
         {
-            for (size_t j = 0; j < SiPM->GetSize(); j++)
-            {
-                if (current_SiPM == GetDetectorChannel((*SiPM)[j].Label))
-                    TreeHist->Fill((*SiPM)[j].Channel * bestPar[0]);
-            }
+            if (current_SiPM == GetDetectorChannel((*SiPM)[j].Label))
+                TreeHist->Fill((*SiPM)[j].Channel * bestPar[0]);
         }
-
-        TreeHist->SetLineColor(kRed);
-        TreeHist->GetXaxis()->UnZoom();
-        TreeHist->Draw("SAME");
-
-        c->cd(2);
-        TH1D *h = (TH1D *)Ref_Hist->Clone("Diff");
-        h->Add(TreeHist, -1.0);
-        h->Draw("EP");
-
-        c->cd(3);
-        graph->Draw("*AP");
-        OutputFile->cd();
-        dir_Chi2SiPMs->cd();
-        c->Write();
-
-        result_counter++;
-        Result_SiPMs->SetPoint(result_counter, i, bestPar[0]);
-        SiPMsMatching[i] = bestPar[0];
-        Result_SiPMs->SetPointError(result_counter, 0, error);
     }
 
+    TreeHist->SetLineColor(kRed);
+    TreeHist->GetXaxis()->UnZoom();
+    TreeHist->Draw("SAME");
+
+    c->cd(2);
+    TH1D *h = (TH1D *)Ref_Hist->Clone("Diff");
+    h->Add(TreeHist, -1.0);
+    h->Draw("EP");
+
+    c->cd(3);
+    graph->Draw("*AP");
+    OutputFile->cd();
     dir_Chi2SiPMs->cd();
+    c->Write();
+
+    result_counter++;
+    Result_SiPMs->SetPoint(result_counter, i, bestPar[0]);
+    SiPMsMatching[i] = bestPar[0];
+    Result_SiPMs->SetPointError(result_counter, 0, error);
+    delete c;
+    }
+        dir_Chi2SiPMs->cd();
     Result_SiPMs->Write();
+
+    ////other technique to maching sipms///////////////////////////////////////////////////////////
+    // TProfile *graph1[BETA_SIZE+1];
+    // int counters[BETA_SIZE+1];
+    // for (int i = 0; i <= BETA_SIZE; i++)
+    // {
+    //     graph1[i] = new TProfile(("PSiPM_" + to_string(i)).c_str(), ("PSiPM_" + to_string(i)).c_str(), 500, 0, eLowMax, 0, eLowMax);
+    // }
+
+    // TTreeReaderArray<Signal> *SiPM = new TTreeReaderArray<Signal>(*Reader, "Tree_SiPM");
+    // // int TotalEntries = Reader->GetEntries();
+    // // string Prefix = "SiPMs Matching";
+    // // clock_t start = clock(), Current;
+    // while (Reader->Next())
+    // {
+    //     Signal Ref;
+    //     // ULong64_t cEntry = Reader->GetCurrentEntry();
+    //         // if ((cEntry % 100 == 0 && cEntry > 0) || (cEntry == TotalEntries-1))
+    //         // {
+    //         //     ProgressBar(cEntry, TotalEntries, start, Current, Prefix);
+    //         // }
+    //     if (SiPM->GetSize() == 7)
+    //     {
+    //         for (int i = 0; i < 7; i++)
+    //         {
+    //             if (GetDetectorChannel((*SiPM)[i].Label) == 1)
+    //             {
+    //                 Ref = (*SiPM)[i];
+    //                 break;
+    //             }
+    //         }
+    //         for (int i = 0; i < 7; i++)
+    //         {
+    //             if (GetDetectorChannel((*SiPM)[i].Label) != 1 && Ref.isValid)
+    //             {
+    //                 graph1[GetDetectorChannel((*SiPM)[i].Label)]->Fill((*SiPM)[i].Channel, Ref.Channel);
+    //                 counters[GetDetectorChannel((*SiPM)[i].Label)]++;
+    //             }
+    //         }
+    //     }
+    // }
+
+    // double new_matching[BETA_SIZE+1];
+    // TCanvas *c = new TCanvas("SiPMs_Matching1", "SiPMs_Matching1", 800, 600);
+    // c->Divide(3, 3);
+    
+    // for (size_t i = 1; i <= BETA_SIZE; ++i)
+    // {
+    //     if (graph1[i]->GetEntries() == 0)
+    //     {
+    //         new_matching[i] = 0;//
+    //         continue;
+    //     }
+    //     c->cd(i);
+    //     graph1[i]->Draw();
+    //     TF1 *fit = new TF1("fit", "[0]*x");
+    //     graph1[i]->Fit(fit);
+    //     new_matching[i] = fit->GetParameter(0);
+        
+    // }
+    // OutputFile->cd();
+    // c->Write();
+    // delete c;
+
+    //////////////////// SAVE ////////////////////
+    // for (size_t i = 1; i <= BETA_SIZE; ++i)
+    // {
+    //     TCanvas *c8 = new TCanvas(("HSiP_Matched" + to_string(i) + "_Channel").c_str(), ("HSiP_Matched" + to_string(i) + "_Channel").c_str(), 800, 600);
+    //     c8->cd();
+    //     current_SiPM = i;
+    //     Ref_Hist->GetXaxis()->UnZoom();
+    //     Ref_Hist->Draw("HIST");
+
+    //     Reader->Restart();
+    //     TTreeReaderArray<Signal> *SiPM = new TTreeReaderArray<Signal>(*Reader, "Tree_SiPM");
+    //     TH1D *TreeHist = (TH1D *)Ref_Hist->Clone((detectorName[i] + "_" + to_string(new_matching[i])).c_str());
+    //     TreeHist->Reset();
+    //     while (Reader->Next())
+    //     {
+    //         for (size_t j = 0; j < SiPM->GetSize(); j++)
+    //         {
+    //             if (current_SiPM == GetDetectorChannel((*SiPM)[j].Label))
+    //                 TreeHist->Fill((*SiPM)[j].Channel * new_matching[current_SiPM]);
+    //         }
+    //     }
+
+    //     cout<< Ref_Hist->Chi2Test(TreeHist, "CHI2/NDF")<<endl;
+    //     TreeHist->SetLineColor(kRed);
+    //     TreeHist->GetXaxis()->UnZoom();
+    //     TreeHist->Draw("SAME");
+    //     OutputFile->cd();
+    //     c8->Write();
+    //     delete c8;
+    // }
+    ////////////////////////////////////////////////////////////////////////////////////////
 
     ///// Apply Matching between SiPMs and Merge them ///////
     cout << "<SAM> Merging SiPMs" << endl;

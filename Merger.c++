@@ -20,8 +20,11 @@ int main(int argc, char *argv[])
         Catcher = "Al";
     }
 
+    dark_file = new TFile("../../SiPM_model/test.root", "UPDATE");
+    dark_file->cd();
+    dark = (TF1 *)dark_file->Get("f1");
+    
     clock_t start = clock(), Current;
-
     InitFiles();
     string dirNameMerged = "./Merged/";
     string dirNameCleaned = "./Cleaned/";
@@ -50,7 +53,7 @@ int main(int argc, char *argv[])
     ////////SILICON CALIBRATION////////
     for (auto &run : runs)
     {
-        cout << "<SAM> Silicon calibration on run : " << run << " | " << endl;
+        string Prefix = Form("<SAM> Silicon calibration on run : %d | ", run);
         Matched_File = new TFile((dirNameMatched + "run_0" + to_string(run) + "_32Ar_matched.root").c_str(), "READ");
         Tree_Read = (TTree *)Matched_File->Get("Tree");
         TTreeReader *Reader = new TTreeReader(Tree_Read);
@@ -70,9 +73,9 @@ int main(int argc, char *argv[])
         {
 
             ULong64_t cEntry = Reader->GetCurrentEntry();
-            if (cEntry % 100 == 0 && cEntry > 0)
+            if ((cEntry % 100 == 0 && cEntry > 0) || (cEntry == TotalEntries-1))
             {
-                ProgressBar(cEntry, TotalEntries, start, Current);
+                ProgressBar(cEntry, TotalEntries, start, Current, Prefix);
             }
 
             if (CurrentDetectorSelection[Tree_Silicon[0].Label])
@@ -88,26 +91,29 @@ int main(int argc, char *argv[])
         }
         Matched_File->Close();
         MakeSiliconCalibration(run);
-        cout << endl;
     }
 
     MakeSiliconCalibration(); /////// compute calibration for merged coeficient
+    InitCalibSiPM();          /////// find SiPM calib from simulation
 
     ////////SiPM CALIBRATION////////
     // SiPM_Runs_Tree = new TTree("SiPM_Runs_Tree", "SiPM_Runs_Tree");
     // TList *list = new TList;
-    for (int i = 1; i <= BETA_SIZE; i++)
+    for (int i = 0; i <= BETA_SIZE+1; i++)
     {
-        Ref_Hist_F[i] = new TH1D(("Fermi_M" + to_string(i)).c_str(), ("Fermi_M" + to_string(i)).c_str(), eLowN, 0, eLowMax / 1000);
-        Ref_Hist_GT[i] = new TH1D(("GT_M" + to_string(i)).c_str(), ("GT_M" + to_string(i)).c_str(), eLowN, 0, eLowMax / 1000);
+        Ref_Hist_F[i] = new TH1D(("Fermi_M" + to_string(i)).c_str(), ("Fermi_M" + to_string(i)).c_str(), 400, 0, 8000);
     }
 
-    Ref_Hist_F_SUM = new TH1D("Fermi_SUM", "Fermi_SUM", eLowN / 2, 0, eLowMax / 100);
-    Ref_Hist_GT_SUM = new TH1D("GT_SUM", "GT_SUM", eLowN / 2, 0, eLowMax / 100);
+    double Channel;
+    for (int i = 0; i <= BETA_SIZE+1; i++)
+    {
+        Ref_Tree_F[i] = new TTree(("Fermi_Tree_M" + to_string(i)).c_str(), ("Fermi_Tree_M" + to_string(i)).c_str());
+        Ref_Tree_F[i]->Branch("Channel", &Channel, "Channel/D");
+    }
 
     for (auto &run : runs)
     {
-        cout << "<SAM> SiPM calibration on run : " << run << " | ";
+        cout << "<SAM> SiPM calibration on run : " << run << " | " <<flush;
         Matched_File = new TFile((dirNameMatched + "run_0" + to_string(run) + "_32Ar_matched.root").c_str(), "READ");
         Tree_Read = (TTree *)Matched_File->Get("Tree");
         TTreeReader *Reader = new TTreeReader(Tree_Read);
@@ -124,40 +130,25 @@ int main(int argc, char *argv[])
                 {
                     for (auto &SiPM : Tree_SiPM)
                     {
-                        Ref_Hist_F[i]->Fill(SiPM.Channel / 1000);
-                    }
+                        // if (GetDetectorChannel(SiPM.Label)==1)
+                        // {
+                        // Ref_Hist_F[i]->Fill(SiPM.Channel / 1000);
+                        Channel = SiPM.Channel/1000;
+                        Ref_Tree_F[i]->Fill();            }             
+                    // }                   
                 }
 
-                double energy = 0;
+                Channel = 0;
                 if (Tree_SiPM.GetSize() == 7)
                 {
                     for (auto &SiPM : Tree_SiPM)
                     {
-                        energy += SiPM.Channel;
+                        Channel += SiPM.Channel;
                     }
-                    Ref_Hist_F_SUM->Fill(energy / 1000);
+                    // Ref_Hist_F[0]->Fill(energy / 7 / 1000);
+                    Channel = Channel / 7 / 1000;
+                    Ref_Tree_F[0]->Fill();   
                 }
-            }
-        }
-
-        if (Is_GT(1 / SiliconCalib[99][Tree_Silicon[0].Label].first * Tree_Silicon[0].Channel, Tree_Silicon[0].Label))
-        {
-            for (int i = 1; i <= Tree_SiPM.GetSize(); i++)
-            {
-                for (auto &SiPM : Tree_SiPM)
-                {
-                    Ref_Hist_GT[i]->Fill(SiPM.Channel / 1000);
-                }
-            }
-
-            double energy = 0;
-            if (Tree_SiPM.GetSize() == 7)
-            {
-                for (auto &SiPM : Tree_SiPM)
-                {
-                    energy += SiPM.Channel;
-                }
-                Ref_Hist_GT_SUM->Fill(energy / 1000);
             }
         }
 
@@ -179,88 +170,85 @@ int main(int argc, char *argv[])
         Matched_File->Close();
         cout << endl;
     }
-    MakeSiPMCalibration(0, "");
-    // MakeSiPMCalibration(0);
-
-    // SiPM_Runs_Tree->Merge(list);
-    // MakeSiPMCalibration(); /////// compute calibration for merged coeficient
+    Merged_File->cd();
+    MakeSiPMCalibration(0);
 
     ////////MERGING////////
-    // for (auto &run : runs)
-    // {
-    //     cout << "<SAM> Merging on run : " << run << endl;
-    //     Matched_File = new TFile((dirNameMatched + "run_0" + to_string(run) + "_32Ar_matched.root").c_str(), "READ");
-    //     Tree_Read = (TTree *)Matched_File->Get("Tree_LowHighMatched");
-    //     TTreeReader *Reader = new TTreeReader(Tree_Read);
-    //     TTreeReaderArray<Signal> Tree_Silicon(*Reader, "Tree_Silicon");
-    //     TTreeReaderArray<Signal> Tree_SiPM(*Reader, "Tree_SiPM");
+    for (auto &run : runs)
+    {
+        cout << "<SAM> Merging on run : " << run << endl;
+        Matched_File = new TFile((dirNameMatched + "run_0" + to_string(run) + "_32Ar_matched.root").c_str(), "READ");
+        Tree_Read = (TTree *)Matched_File->Get("Tree_LowHighMatched");
+        TTreeReader *Reader = new TTreeReader(Tree_Read);
+        TTreeReaderArray<Signal> Tree_Silicon(*Reader, "Tree_Silicon");
+        TTreeReaderArray<Signal> Tree_SiPM(*Reader, "Tree_SiPM");
 
-    //     pair<string, string> string_time = GetTime(Matched_File);
-    //     start_time = Convert_DatetoTime(string_time.first, file_string_Time[0].first);
-    //     stop_time = Convert_DatetoTime(string_time.second, file_string_Time[0].first);
+        pair<string, string> string_time = GetTime(Matched_File);
+        start_time = Convert_DatetoTime(string_time.first, file_string_Time[0].first);
+        stop_time = Convert_DatetoTime(string_time.second, file_string_Time[0].first);
 
-    //     InitMatching();
-    //     bool CurrentDetectorSelection[SIGNAL_MAX];
-    //     copy(begin(RunDetectorSelection[run]), end(RunDetectorSelection[run]), begin(CurrentDetectorSelection));
+        InitMatching();
+        bool CurrentDetectorSelection[SIGNAL_MAX];
+        copy(begin(RunDetectorSelection[run]), end(RunDetectorSelection[run]), begin(CurrentDetectorSelection));
 
-    //     int TotalEntries = Tree_Read->GetEntries();
-    //     while (Reader->Next())
-    //     {
-    //         // ULong64_t cEntry = Reader->GetCurrentEntry();
-    //         // if (cEntry % 10000 == 0 && cEntry > 10000)
-    //         // {
-    //         //     ProgressBar(cEntry, TotalEntries, start, Current);
-    //         // }
+        int TotalEntries = Tree_Read->GetEntries();
+        while (Reader->Next())
+        {
+            // ULong64_t cEntry = Reader->GetCurrentEntry();
+            // if (cEntry % 10000 == 0 && cEntry > 10000)
+            // {
+            //     ProgressBar(cEntry, TotalEntries, start, Current);
+            // }
 
-    //         if (CurrentDetectorSelection[Tree_Silicon[0].Label])
-    //         {
-    //             double Silicon_Energy = 1 / SiliconCalib[99][Tree_Silicon[0].Label].first * Tree_Silicon[0].Channel;
+            if (CurrentDetectorSelection[Tree_Silicon[0].Label])
+            {
+                double Silicon_Energy = 1 / SiliconCalib[99][Tree_Silicon[0].Label].first * Tree_Silicon[0].Channel;
 
-    //             HSiliconRun[Tree_Silicon[0].Label]->Fill(start_time + (double)Tree_Silicon[0].Time * 1e-9 / 3600, Silicon_Energy);
-    //             HSilicon[Tree_Silicon[0].Label]->Fill(Silicon_Energy);
+                HSiliconRun[Tree_Silicon[0].Label]->Fill(start_time + (double)Tree_Silicon[0].Time * 1e-9 / 3600, Silicon_Energy);
+                HSilicon[Tree_Silicon[0].Label]->Fill(Silicon_Energy);
 
-    //             if (Tree_SiPM.GetSize() > 3)
-    //             {
-    //                 HSilicon_coinc[Tree_Silicon[0].Label]->Fill(Silicon_Energy);
-    //             }
-    //             else
-    //             {
-    //                 HSilicon_no_coinc[Tree_Silicon[0].Label]->Fill(Silicon_Energy);
-    //             }
+                if (Tree_SiPM.GetSize() > 3)
+                {
+                    HSilicon_coinc[Tree_Silicon[0].Label]->Fill(Silicon_Energy);
+                }
+                else
+                {
+                    HSilicon_no_coinc[Tree_Silicon[0].Label]->Fill(Silicon_Energy);
+                }
 
-    //             if (Tree_SiPM.GetSize() > 0)
-    //             {
-    //                 double sum = 0;
-    //                 for (int j = 0; j < Tree_SiPM.GetSize(); j++)
-    //                 {
-    //                     sum += Tree_SiPM[j].Channel;
-    //                 }
+                if (Tree_SiPM.GetSize() > 0)
+                {
+                    double sum = 0;
+                    for (int j = 0; j < Tree_SiPM.GetSize(); j++)
+                    {
+                        sum += Tree_SiPM[j].Channel;
+                    }
 
-    //                 for (int i = 1; i < Tree_SiPM.GetSize() + 1; i++)
-    //                 {
-    //                     HSiPM[i]->Fill(sum);
-    //                 }
+                    for (int i = 1; i < Tree_SiPM.GetSize() + 1; i++)
+                    {
+                        HSiPM[i]->Fill(sum);
+                    }
 
-    //                 if (Is_F(Silicon_Energy, Tree_Silicon[0].Label))
-    //                 {
-    //                     for (int i = 1; i < Tree_SiPM.GetSize() + 1; i++)
-    //                     {
-    //                         HSiPM_F[i]->Fill(sum);
-    //                     }
-    //                 }
+                    if (Is_F(Silicon_Energy, Tree_Silicon[0].Label))
+                    {
+                        for (int i = 1; i < Tree_SiPM.GetSize() + 1; i++)
+                        {
+                            HSiPM_F[i]->Fill(sum);
+                        }
+                    }
 
-    //                 else if (Is_GT(Silicon_Energy, Tree_Silicon[0].Label))
-    //                 {
-    //                     for (int i = 1; i < Tree_SiPM.GetSize() + 1; i++)
-    //                     {
-    //                         HSiPM_GT[i]->Fill(sum);
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     Matched_File->Close();
-    // }
+                    else if (Is_GT(Silicon_Energy, Tree_Silicon[0].Label))
+                    {
+                        for (int i = 1; i < Tree_SiPM.GetSize() + 1; i++)
+                        {
+                            HSiPM_GT[i]->Fill(sum);
+                        }
+                    }
+                }
+            }
+        }
+        Matched_File->Close();
+    }
 
     WriteHistograms();
     Merged_File->Close();

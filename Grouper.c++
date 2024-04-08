@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
         ULong64_t cEntry = Reader->GetCurrentEntry();
         if (cEntry%1000000 == 0 && cEntry > 2000000)
         {
-            ProgressBar(cEntry, TotalEntries, start, Current);
+            ProgressBar(cEntry, TotalEntries, start, Current, "");
         }
 
         if (Verbose > 1)
@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
         ULong64_t cEntry = Grouped_Reader->GetCurrentEntry();
         if (cEntry%10000 == 0 && cEntry > 10000)
         {
-            ProgressBar(cEntry, TotalEntries, start, Current);
+            ProgressBar(cEntry, TotalEntries, start, Current, "");
         }
         
         double min = detectorCleaning[Grouped_Silicon[0].Label].first - sigma_acceptance*detectorCleaning[Grouped_Silicon[0].Label].second;

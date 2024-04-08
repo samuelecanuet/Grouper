@@ -276,4 +276,45 @@ pair<string, string> GetTime(TFile* File)
   return make_pair(str_start, str_stop);
 }
 
+void ProgressBar(ULong64_t cEntry, ULong64_t TotalEntries, clock_t start, clock_t Current, string Prefix = "")
+{
+  if (cEntry % 100000 == 0 && cEntry > 2 * 100000)
+  {
+    Current = clock();
+    const Char_t *Color;
+    Double_t Frac = 1.0 * cEntry / TotalEntries;
+    Double_t Timeclock = ((double)(Current - start) / CLOCKS_PER_SEC);
+    Double_t TimeLeft = Timeclock * (1 / Frac - 1.);
+    Color = "\e[1;31m";
+
+    cout << Form(("\r"+Prefix+" Entries : ").c_str())
+         << TotalEntries
+         << " --- "
+         << Form("%4.2f", 100. * cEntry / TotalEntries) << " %"
+         << " --- "
+         << " Time Left : " << Form("%2d min ", (int)TimeLeft / 60)
+         << Form("%02d sec", (int)TimeLeft % 60)
+         << flush;
+  }
+
+  if (cEntry == TotalEntries-1)
+  {
+    Current = clock();
+    const Char_t *Color;
+    Double_t Frac = 1.0 * cEntry / TotalEntries;
+    Double_t Timeclock = ((double)(Current - start) / CLOCKS_PER_SEC);
+    Double_t TimeLeft = Timeclock * (1 / Frac - 1.);
+    Color = "\e[1;31m";
+    cout << Form(("\r"+Prefix+" Entries : ").c_str())
+         << TotalEntries
+         << " --- "
+         << Form("%4.2f", 100. * cEntry / TotalEntries) << " %"
+         << " --- "
+         << " Time Left : " << Form("%2d min ", (int)TimeLeft / 60)
+         << Form("%02d sec", (int)TimeLeft % 60)
+         << flush;
+    cout << endl;
+  }
+}
+
 #endif
