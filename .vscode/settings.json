@@ -55,6 +55,7 @@
         "thread": "cpp",
         "cinttypes": "cpp",
         "IAS_stat.C": "cpp",
-        "fit.C": "cpp"
+        "fit.C": "cpp",
+        "*.ipp": "cpp"
     }
 }
