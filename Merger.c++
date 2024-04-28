@@ -105,8 +105,7 @@ int main(int argc, char *argv[])
         {
             Ref_Hist_F[j][i] = new TH1D(("Fermi_M"+ to_string(j)+"_SiPM" + to_string(i)).c_str(), ("Fermi_M"+ to_string(j)+"_SiPM" + to_string(i)).c_str(), 800, 0, 8000);
         }
-        Ref_Hist_Multi_F[i] = new TH1D(("Fermi_M" + to_string(i)).c_str(), ("Fermi_M" + to_string(i)).c_str(), 2000, 0, 8000);
-        Ref_Hist_Surface_F[i] = new TH1D(("Fermi_Surface" + to_string(i)).c_str(), ("Fermi_Surface" + to_string(i)).c_str(), 2000, 0, 8000);
+        Ref_Hist_Multi_F[i] = new TH1D(("Fermi_M" + to_string(i)).c_str(), ("Fermi_M" + to_string(i)).c_str(), 800, 0, 8000);
     }
 
     double Channel;
@@ -123,10 +122,6 @@ int main(int argc, char *argv[])
         Ref_Tree_Multi_F[i] = new TTree(("Fermi_Tree_M" + to_string(i)).c_str(), ("Fermi_Tree_M" + to_string(i)).c_str());
         Ref_Tree_Multi_F[i]->Branch("Channel", &Channel, "Channel/D");
         Ref_Tree_Multi_F[i]->Branch("Label", &Label, "Label/I");
-
-        Ref_Tree_Surface_F[i] = new TTree(("Fermi_Tree_Surface" + to_string(i)).c_str(), ("Fermi_Tree_Surface" + to_string(i)).c_str());
-        Ref_Tree_Surface_F[i]->Branch("Channel", &Channel, "Channel/D");
-        Ref_Tree_Surface_F[i]->Branch("Label", &Label, "Label/I");
     }
 
     for (auto &run : runs)
@@ -192,8 +187,9 @@ int main(int argc, char *argv[])
     }
     Merged_File->cd();
     MakeSiPMCalibration(0);
-    MakeSiPM_SiPMPlots();
+    // MakeSiPM_SiPMPlots();
     MakeSiPM_MultiplicityPlots();
+    // MakeSiPM_ParameterPlots();
 
     ////////MERGING////////
     for (auto &run : runs)
