@@ -37,8 +37,8 @@ int coderDetector[FDATA_MAX]; ///< Detector number of all coders
 
 
 /// Silicon ///
-double winSiliMin = -50;
-double winSiliMax = 50;
+double winSiliMin = 4;
+double winSiliMax = 100;
 int winSiliN = (abs(winSiliMin) + winSiliMax) / 8;
 double eSiliMin = 0;
 double eSiliMax = 100000;
@@ -46,16 +46,16 @@ int eSiliN = 10000;
 
 /// SiPM ///
 /// High
-double winHighMin = 0;
-double winHighMax = 250;
+double winHighMin = 4;
+double winHighMax = 100;
 int winHighN = (abs(winHighMin) + winHighMax) / 2;
 double eHighMin = 0;
 double eHighMax = 4000000;
 int eHighN = 4000;
 
 /// Low
-double winLowMin = 0;
-double winLowMax = 250;
+double winLowMin = 4;
+double winLowMax = 100;
 int winLowN = (abs(winLowMin) + winLowMax) / 2;
 double eLowMin = 0;
 double eLowMax = 4000000;

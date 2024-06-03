@@ -103,9 +103,9 @@ int main(int argc, char *argv[])
     {
         for (int j = 0; j < BETA_SIZE+1; j++)
         {
-            Ref_Hist_F[j][i] = new TH1D(("Fermi_M"+ to_string(j)+"_SiPM" + to_string(i)).c_str(), ("Fermi_M"+ to_string(j)+"_SiPM" + to_string(i)).c_str(), 800, 0, 8000);
+            Ref_Hist_F[j][i] = new TH1D(("Fermi_M"+ to_string(j)+"_SiPM" + to_string(i)).c_str(), ("Fermi_M"+ to_string(j)+"_SiPM" + to_string(i)).c_str(), 1200, 0, 12000);
         }
-        Ref_Hist_Multi_F[i] = new TH1D(("Fermi_M" + to_string(i)).c_str(), ("Fermi_M" + to_string(i)).c_str(), 800, 0, 8000);
+        Ref_Hist_Multi_F[i] = new TH1D(("Fermi_M" + to_string(i)).c_str(), ("Fermi_M" + to_string(i)).c_str(), 1200, 0, 12000);
     }
 
     double Channel;
@@ -137,7 +137,7 @@ int main(int argc, char *argv[])
         vector<int> result;
         int TotalEntries = Tree_Read->GetEntries();
 
-        while (Reader->Next())
+        while (Reader->Next() && Reader->GetCurrentEntry() < 1000000)
         {
             ULong64_t cEntry = Reader->GetCurrentEntry();
             if ((cEntry % 100 == 0 && cEntry > 0) || (cEntry == TotalEntries-1))
@@ -186,7 +186,7 @@ int main(int argc, char *argv[])
         Matched_File->Close();
     }
     Merged_File->cd();
-    MakeSiPMCalibration(0);
+    // MakeSiPMCalibration(0); // convoluted + th but no multiplicity convoluting
     // MakeSiPM_SiPMPlots();
     MakeSiPM_MultiplicityPlots();
     // MakeSiPM_ParameterPlots();
@@ -225,43 +225,13 @@ int main(int argc, char *argv[])
                 HSiliconRun[Tree_Silicon[0].Label]->Fill(start_time + (double)Tree_Silicon[0].Time * 1e-9 / 3600, Silicon_Energy);
                 HSilicon[Tree_Silicon[0].Label]->Fill(Silicon_Energy);
 
-                if (Tree_SiPM.GetSize() > 3)
+                if (Tree_SiPM.GetSize() != 0)
                 {
                     HSilicon_coinc[Tree_Silicon[0].Label]->Fill(Silicon_Energy);
                 }
                 else
                 {
                     HSilicon_no_coinc[Tree_Silicon[0].Label]->Fill(Silicon_Energy);
-                }
-
-                if (Tree_SiPM.GetSize() > 0)
-                {
-                    double sum = 0;
-                    for (int j = 0; j < Tree_SiPM.GetSize(); j++)
-                    {
-                        sum += Tree_SiPM[j].Channel;
-                    }
-
-                    for (int i = 1; i < Tree_SiPM.GetSize() + 1; i++)
-                    {
-                        HSiPM[i]->Fill(sum);
-                    }
-
-                    if (Is_F(Silicon_Energy, Tree_Silicon[0].Label))
-                    {
-                        for (int i = 1; i < Tree_SiPM.GetSize() + 1; i++)
-                        {
-                            HSiPM_F[i]->Fill(sum);
-                        }
-                    }
-
-                    else if (Is_GT(Silicon_Energy, Tree_Silicon[0].Label))
-                    {
-                        for (int i = 1; i < Tree_SiPM.GetSize() + 1; i++)
-                        {
-                            HSiPM_GT[i]->Fill(sum);
-                        }
-                    }
                 }
             }
         }
